@@ -1,0 +1,18 @@
+[package]
+name = "actix-web-middleware-keycloak-auth"
+version = "0.1.0"
+authors = ["David Sferruzza <david.sferruzza@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "3.2.0"
+chrono = { version = "0.4.19", features = ["serde"] }
+futures-util = "0.3.8"
+log = "0.4.11"
+jsonwebtoken = "7.2.0"
+serde = { version = "1.0.117", features = ["derive"] }
+
+[dev-dependencies]
+env_logger = "0.8.2"

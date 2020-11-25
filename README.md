@@ -1,6 +1,8 @@
 # actix-web-middleware-keycloak-auth
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Build and test](https://github.com/dsferruzza/actix-web-middleware-keycloak-auth/workflows/Build%20and%20test/badge.svg)
+![Lint](https://github.com/dsferruzza/actix-web-middleware-keycloak-auth/workflows/Lint/badge.svg)
 [![Crates.io Version](https://img.shields.io/crates/v/actix-web-middleware-keycloak-auth.svg)](https://crates.io/crates/actix-web-middleware-keycloak-auth)
 [![Documentation](https://docs.rs/actix-web-middleware-keycloak-auth/badge.svg)](https://docs.rs/actix-web-middleware-keycloak-auth)
 

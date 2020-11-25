@@ -1,17 +1,19 @@
 mod errors;
+mod roles;
 
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::{Error, HttpMessage};
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures_util::future::{ok, ready, Ready};
-use jsonwebtoken::{decode, decode_header, DecodingKey, TokenData, Validation};
+use jsonwebtoken::{decode, decode_header, DecodingKey, Validation};
 use log::{debug, trace};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use errors::AuthError;
+use roles::check_roles;
 
 #[derive(Debug, Clone)]
 pub struct KeycloakAuth {
@@ -51,7 +53,7 @@ pub struct KeycloakAuthMiddleware<S> {
     required_roles: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Claims {
     pub sub: String,
     pub realm_access: Option<RealmAccess>,
@@ -59,7 +61,16 @@ pub struct Claims {
     pub exp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+impl Claims {
+    pub fn roles(&self) -> Vec<String> {
+        self.realm_access
+            .clone()
+            .map(|ra| ra.roles)
+            .unwrap_or_else(Vec::new)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RealmAccess {
     roles: Vec<String>,
 }
@@ -139,146 +150,5 @@ where
                     .into_body(),
             )))),
         }
-    }
-}
-
-fn check_roles(
-    token: TokenData<Claims>,
-    required_roles: &[String],
-) -> Result<TokenData<Claims>, AuthError> {
-    let realm_roles = token
-        .claims
-        .clone()
-        .realm_access
-        .map(|ra| ra.roles)
-        .unwrap_or_else(Vec::new);
-
-    debug!("JWT contains roles: {}", &realm_roles.join(", "));
-
-    let mut missing_roles = vec![];
-    for role in required_roles {
-        if !realm_roles.contains(&role) {
-            missing_roles.push(role.clone());
-        }
-    }
-
-    if missing_roles.is_empty() {
-        Ok(token)
-    } else {
-        Err(AuthError::MissingRoles(missing_roles))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use jsonwebtoken::{Algorithm, Header};
-
-    #[test]
-    fn no_required_no_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: None,
-            },
-        };
-        let required_roles = &[];
-
-        assert!(check_roles(token, required_roles).is_ok());
-    }
-
-    #[test]
-    fn no_required_some_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: Some(RealmAccess {
-                    roles: vec!["test1".to_owned(), "test2".to_owned()],
-                }),
-            },
-        };
-        let required_roles = &[];
-
-        assert!(check_roles(token, required_roles).is_ok());
-    }
-
-    #[test]
-    fn some_required_no_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: None,
-            },
-        };
-        let required_roles = &["test1".to_owned(), "test2".to_owned()];
-
-        let result = check_roles(token, required_roles);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            AuthError::MissingRoles(vec!["test1".to_owned(), "test2".to_owned()])
-        );
-    }
-
-    #[test]
-    fn some_required_some_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: Some(RealmAccess {
-                    roles: vec!["test2".to_owned()],
-                }),
-            },
-        };
-        let required_roles = &["test1".to_owned(), "test2".to_owned()];
-
-        let result = check_roles(token, required_roles);
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            AuthError::MissingRoles(vec!["test1".to_owned(),])
-        );
-    }
-
-    #[test]
-    fn some_required_all_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: Some(RealmAccess {
-                    roles: vec!["test1".to_owned(), "test2".to_owned()],
-                }),
-            },
-        };
-        let required_roles = &["test1".to_owned(), "test2".to_owned()];
-
-        assert!(check_roles(token, required_roles).is_ok());
-    }
-
-    #[test]
-    fn some_required_more_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: Some(RealmAccess {
-                    roles: vec!["test1".to_owned(), "test2".to_owned(), "test3".to_owned()],
-                }),
-            },
-        };
-        let required_roles = &["test1".to_owned(), "test2".to_owned()];
-
-        assert!(check_roles(token, required_roles).is_ok());
     }
 }

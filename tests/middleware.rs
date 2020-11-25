@@ -1,7 +1,7 @@
 use actix_web::http::StatusCode;
 use actix_web::web::{Bytes, ReqData};
 use actix_web::{test, web, App, HttpResponse, Responder};
-use actix_web_middleware_keycloak_auth::{Claims, KeycloakAuth};
+use actix_web_middleware_keycloak_auth::{Claims, KeycloakAuth, RealmAccess};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
 use std::ops::Add;
@@ -132,6 +132,33 @@ async fn no_bearer_token() {
 }
 
 #[actix_rt::test]
+async fn no_bearer_token_no_debug() {
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: false,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+    let mut app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(private)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let req = test::TestRequest::with_uri("/private").to_request();
+    let resp = test::call_service(&mut app, req).await;
+
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    let body = test::read_body(resp).await;
+    dbg!(&body);
+    assert_eq!(body, StatusCode::UNAUTHORIZED.to_string());
+}
+
+#[actix_rt::test]
 async fn invalid_authorization_header() {
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
@@ -249,6 +276,90 @@ async fn valid_jwt() {
         exp: Utc::now().add(Duration::minutes(1)),
         sub: user_id.to_owned(),
         realm_access: None,
+    };
+    let jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+    let req = test::TestRequest::with_uri("/private")
+        .header("Authorization", format!("Bearer {}", &jwt))
+        .to_request();
+    let resp = test::call_service(&mut app, req).await;
+
+    assert!(resp.status().is_success());
+    let body = test::read_body(resp).await;
+    assert_eq!(body, Bytes::from_static(user_id.as_bytes()));
+}
+
+#[actix_rt::test]
+async fn missing_jwt_roles() {
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec!["test1".to_owned(), "test2".to_owned()],
+    };
+    let mut app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(private)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let user_id = "user_42";
+    let claims = Claims {
+        exp: Utc::now().add(Duration::minutes(1)),
+        sub: user_id.to_owned(),
+        realm_access: Some(RealmAccess {
+            roles: vec!["test2".to_owned()],
+        }),
+    };
+    let jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+    let req = test::TestRequest::with_uri("/private")
+        .header("Authorization", format!("Bearer {}", &jwt))
+        .to_request();
+    let resp = test::call_service(&mut app, req).await;
+
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    let body = test::read_body(resp).await;
+    assert!(!body.is_empty());
+}
+
+#[actix_rt::test]
+async fn valid_jwt_roles() {
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec!["test1".to_owned(), "test2".to_owned()],
+    };
+    let mut app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(private)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let user_id = "user_42";
+    let claims = Claims {
+        exp: Utc::now().add(Duration::minutes(1)),
+        sub: user_id.to_owned(),
+        realm_access: Some(RealmAccess {
+            roles: vec!["test1".to_owned(), "test2".to_owned()],
+        }),
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),

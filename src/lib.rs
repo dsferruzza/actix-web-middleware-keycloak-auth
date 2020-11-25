@@ -72,7 +72,7 @@ impl Claims {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RealmAccess {
-    roles: Vec<String>,
+    pub roles: Vec<String>,
 }
 
 impl<S, B> Service for KeycloakAuthMiddleware<S>

@@ -17,7 +17,7 @@ A middleware for [Actix Web](https://actix.rs/) that handles authentication with
 
 ## Usage
 
-- [Documentation](https://crates.io/crates/actix-web-middleware-keycloak-auth)
+- [Documentation](https://docs.rs/actix-web-middleware-keycloak-auth)
 - [Simple example](examples/simple.rs)
 
 ## License

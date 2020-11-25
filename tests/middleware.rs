@@ -164,7 +164,7 @@ async fn no_bearer_token_no_debug() {
 }
 
 #[actix_rt::test]
-async fn invalid_authorization_header() {
+async fn no_bearer_in_authorization_header() {
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),

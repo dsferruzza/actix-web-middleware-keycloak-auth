@@ -9,6 +9,7 @@ use actix_web::{HttpResponse, ResponseError};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthError {
     NoBearerToken,
+    InvalidAuthorizationHeader,
     InvalidJwt(String),
     DecodeError(String),
     MissingRoles(Vec<String>),
@@ -18,6 +19,7 @@ impl ResponseError for AuthError {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::MissingRoles(_) => StatusCode::FORBIDDEN,
+            Self::InvalidAuthorizationHeader => StatusCode::BAD_REQUEST,
             _ => StatusCode::UNAUTHORIZED,
         }
     }
@@ -31,6 +33,9 @@ impl std::fmt::Display for AuthError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NoBearerToken => f.write_str("No bearer token was provided"),
+            Self::InvalidAuthorizationHeader => {
+                f.write_str("Authorization header value is invalid (cannot convert it into string)")
+            }
             Self::InvalidJwt(e) => write!(f, "Invalid JWT token ({})", e),
             Self::DecodeError(e) => write!(f, "Error while decoding JWT token ({})", e),
             Self::MissingRoles(roles) => {

@@ -219,53 +219,61 @@ where
     }
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
-        let raw_token = req
-            .headers()
-            .get("Authorization")
-            .map(|val| val.to_str().unwrap().trim_start_matches("Bearer "));
+        let auth_header = req.headers().get("Authorization");
 
-        match raw_token {
-            Some(token) => {
-                debug!("Bearer token was extracted from request headers");
+        match auth_header {
+            Some(auth_header_value) => {
+                let auth_header_str = auth_header_value.to_str();
+                match auth_header_str {
+                    Ok(raw_token) => {
+                        let token = raw_token.trim_start_matches("Bearer ");
+                        debug!("Bearer token was extracted from request headers");
 
-                match decode_header(token) {
-                    Ok(jwt_header) => {
-                        debug!("JWT header was decoded");
-                        debug!("JWT is using {:?} algorithm", &jwt_header.alg);
+                        match decode_header(token) {
+                            Ok(jwt_header) => {
+                                debug!("JWT header was decoded");
+                                debug!("JWT is using {:?} algorithm", &jwt_header.alg);
 
-                        match decode::<Claims>(
-                            &token,
-                            &self.keycloak_oid_public_key,
-                            &Validation::new(jwt_header.alg),
-                        ) {
-                            Ok(token) => {
-                                debug!("JWT was decoded");
+                                match decode::<Claims>(
+                                    &token,
+                                    &self.keycloak_oid_public_key,
+                                    &Validation::new(jwt_header.alg),
+                                ) {
+                                    Ok(token) => {
+                                        debug!("JWT was decoded");
 
-                                match check_roles(token, &self.required_roles) {
-                                    Ok(token_data) => {
-                                        debug!("JWT is valid; putting claims in ReqData");
+                                        match check_roles(token, &self.required_roles) {
+                                            Ok(token_data) => {
+                                                debug!("JWT is valid; putting claims in ReqData");
 
-                                        {
-                                            let mut extensions = req.extensions_mut();
-                                            extensions.insert(token_data.claims);
+                                                {
+                                                    let mut extensions = req.extensions_mut();
+                                                    extensions.insert(token_data.claims);
+                                                }
+
+                                                Box::pin(self.service.call(req))
+                                            }
+                                            Err(e) => Box::pin(ready(Ok(req.into_response(
+                                                e.to_response(self.detailed_responses).into_body(),
+                                            )))),
                                         }
-
-                                        Box::pin(self.service.call(req))
                                     }
                                     Err(e) => Box::pin(ready(Ok(req.into_response(
-                                        e.to_response(self.detailed_responses).into_body(),
+                                        AuthError::DecodeError(e.to_string())
+                                            .to_response(self.detailed_responses)
+                                            .into_body(),
                                     )))),
                                 }
                             }
                             Err(e) => Box::pin(ready(Ok(req.into_response(
-                                AuthError::DecodeError(e.to_string())
+                                AuthError::InvalidJwt(e.to_string())
                                     .to_response(self.detailed_responses)
                                     .into_body(),
                             )))),
                         }
                     }
-                    Err(e) => Box::pin(ready(Ok(req.into_response(
-                        AuthError::InvalidJwt(e.to_string())
+                    Err(_) => Box::pin(ready(Ok(req.into_response(
+                        AuthError::InvalidAuthorizationHeader
                             .to_response(self.detailed_responses)
                             .into_body(),
                     )))),

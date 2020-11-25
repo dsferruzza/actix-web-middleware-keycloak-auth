@@ -15,4 +15,5 @@ jsonwebtoken = "7.2.0"
 serde = { version = "1.0.117", features = ["derive"] }
 
 [dev-dependencies]
+actix-rt = "1.1.1"
 env_logger = "0.8.2"

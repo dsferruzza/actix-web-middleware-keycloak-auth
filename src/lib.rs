@@ -4,7 +4,7 @@
 // License: MIT
 
 //! # actix-web-middleware-keycloak-auth
-//! A middleware for Actix Web that handles authentification with a JWT emitted by [Keycloak](https://www.keycloak.org/).
+//! A middleware for Actix Web that handles authentication with a JWT emitted by [Keycloak](https://www.keycloak.org/).
 //!
 //! ## Setup middleware
 //!

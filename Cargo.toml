@@ -3,6 +3,12 @@ name = "actix-web-middleware-keycloak-auth"
 version = "0.1.0"
 authors = ["David Sferruzza <david.sferruzza@gmail.com>"]
 edition = "2018"
+description = "A middleware for Actix Web that handles authentification with a JWT emitted by Keycloak"
+repository = "https://github.com/dsferruzza/actix-web-middleware-keycloak-auth"
+readme = "README.md"
+categories = ["authentication", "web-programming::http-server"]
+keywords = ["actix-web", "middleware", "authentication", "jwt", "keycloak"]
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

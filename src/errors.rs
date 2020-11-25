@@ -1,3 +1,8 @@
+// actix-web-middleware-keycloak-auth
+//
+// Copyright: 2020, David Sferruzza
+// License: MIT
+
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError};
 

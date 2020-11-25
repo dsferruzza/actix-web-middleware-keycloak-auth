@@ -1,3 +1,8 @@
+// actix-web-middleware-keycloak-auth
+//
+// Copyright: 2020, David Sferruzza
+// License: MIT
+
 use jsonwebtoken::TokenData;
 use log::debug;
 

@@ -1,7 +1,11 @@
+// actix-web-middleware-keycloak-auth
+//
+// Copyright: 2020, David Sferruzza
+// License: MIT
+
 use actix_web::web::ReqData;
 use actix_web::{middleware, web, App, HttpResponse, HttpServer, Responder};
-use actix_web_middleware_keycloak_auth::{Claims, KeycloakAuth};
-use jsonwebtoken::DecodingKey;
+use actix_web_middleware_keycloak_auth::{Claims, DecodingKey, KeycloakAuth};
 
 const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv

@@ -24,9 +24,3 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-
-      - name: Run cargo test on documentation
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --doc

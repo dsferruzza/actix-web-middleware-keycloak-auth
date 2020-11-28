@@ -6,9 +6,11 @@
 use actix_web::http::StatusCode;
 use actix_web::web::{Bytes, ReqData};
 use actix_web::{test, web, App, HttpResponse, Responder};
-use actix_web_middleware_keycloak_auth::{Claims, KeycloakAuth, RealmAccess};
+use actix_web_middleware_keycloak_auth::{Access, Claims, KeycloakAuth, Role};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
+use std::collections::HashMap;
+use std::iter::FromIterator;
 use std::ops::Add;
 
 const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----
@@ -241,6 +243,7 @@ async fn invalid_jwt_signature() {
         exp: Utc::now().add(Duration::minutes(1)),
         sub: "".to_owned(),
         realm_access: None,
+        resource_access: None,
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -281,6 +284,7 @@ async fn valid_jwt() {
         exp: Utc::now().add(Duration::minutes(1)),
         sub: user_id.to_owned(),
         realm_access: None,
+        resource_access: None,
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -303,7 +307,14 @@ async fn missing_jwt_roles() {
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec!["test1".to_owned(), "test2".to_owned()],
+        required_roles: vec![
+            Role::Realm {
+                role: "test1".to_owned(),
+            },
+            Role::Realm {
+                role: "test2".to_owned(),
+            },
+        ],
     };
     let mut app = test::init_service(
         App::new()
@@ -320,9 +331,10 @@ async fn missing_jwt_roles() {
     let claims = Claims {
         exp: Utc::now().add(Duration::minutes(1)),
         sub: user_id.to_owned(),
-        realm_access: Some(RealmAccess {
+        realm_access: Some(Access {
             roles: vec!["test2".to_owned()],
         }),
+        resource_access: None,
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -345,7 +357,18 @@ async fn valid_jwt_roles() {
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec!["test1".to_owned(), "test2".to_owned()],
+        required_roles: vec![
+            Role::Realm {
+                role: "test1".to_owned(),
+            },
+            Role::Realm {
+                role: "test2".to_owned(),
+            },
+            Role::Client {
+                client: "client".to_owned(),
+                role: "test3".to_owned(),
+            },
+        ],
     };
     let mut app = test::init_service(
         App::new()
@@ -362,9 +385,15 @@ async fn valid_jwt_roles() {
     let claims = Claims {
         exp: Utc::now().add(Duration::minutes(1)),
         sub: user_id.to_owned(),
-        realm_access: Some(RealmAccess {
-            roles: vec!["test1".to_owned(), "test2".to_owned()],
+        realm_access: Some(Access {
+            roles: vec!["test2".to_owned(), "test1".to_owned()],
         }),
+        resource_access: Some(HashMap::from_iter(vec![(
+            "client".to_owned(),
+            Access {
+                roles: vec!["test3".to_owned()],
+            },
+        )])),
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),

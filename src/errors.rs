@@ -6,13 +6,15 @@
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError};
 
+use crate::Role;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthError {
     NoBearerToken,
     InvalidAuthorizationHeader,
     InvalidJwt(String),
     DecodeError(String),
-    MissingRoles(Vec<String>),
+    MissingRoles(Vec<Role>),
 }
 
 impl ResponseError for AuthError {
@@ -39,7 +41,15 @@ impl std::fmt::Display for AuthError {
             Self::InvalidJwt(e) => write!(f, "Invalid JWT token ({})", e),
             Self::DecodeError(e) => write!(f, "Error while decoding JWT token ({})", e),
             Self::MissingRoles(roles) => {
-                write!(f, "JWT token is missing roles: {}", roles.join(", "))
+                write!(
+                    f,
+                    "JWT token is missing roles: {}",
+                    &roles
+                        .iter()
+                        .map(|r| r.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
             }
         }
     }

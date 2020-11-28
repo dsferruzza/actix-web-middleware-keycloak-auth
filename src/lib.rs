@@ -43,16 +43,20 @@
 //! If they are not provided, the middleware will return a 403 error.
 //!
 //! ```
-//! # use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey};
+//! # use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey, Role};
 //! # const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv\nvkTtwlvBsaJq7S5wA+kzeVOVpVWwkWdVha4s38XM/pa/yr47av7+z3VTmvDRyAHc\naT92whREFpLv9cj5lTeJSibyr/Mrm/YtjCZVWgaOYIhwrXwKLqPr/11inWsAkfIy\ntvHWTxZYEcXLgAXFuUuaS3uF9gEiNQwzGTU1v0FqkqTBr4B8nW3HCN47XUu0t8Y0\ne+lf4s4OxQawWD79J9/5d3Ry0vbV3Am1FtGJiJvOwRsIfVChDpYStTcHTCMqtvWb\nV6L11BWkpzGXSW4Hv43qa+GSYOD2QU68Mb59oSk2OB+BtOLpJofmbGEGgvmwyCI9\nMwIDAQAB\n-----END PUBLIC KEY-----";
 //! let keycloak_auth = KeycloakAuth {
 //!     detailed_responses: true,
 //!     keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-//!     required_roles: vec!["admin".to_owned()], // The "admin" role must be provided in the JWT
+//!     required_roles: vec![
+//!         Role::Realm { role: "admin".to_owned() }, // The "admin" realm role must be provided in the JWT
+//!         Role::Client {
+//!             client: "backoffice".to_owned(),
+//!             role: "readonly".to_owned()
+//!         }, // The "readonly" role of the "backoffice" client must be provided in the JWT
+//!     ],
 //! };
 //! ```
-//!
-//! _For now, only realm level roles are supported!_
 //!
 //! ## Use several authentication profiles
 //!
@@ -60,7 +64,7 @@
 //!
 //! ```
 //! use actix_web::{App, web, HttpResponse};
-//! use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey};
+//! use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey, Role};
 //!
 //! # const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv\nvkTtwlvBsaJq7S5wA+kzeVOVpVWwkWdVha4s38XM/pa/yr47av7+z3VTmvDRyAHc\naT92whREFpLv9cj5lTeJSibyr/Mrm/YtjCZVWgaOYIhwrXwKLqPr/11inWsAkfIy\ntvHWTxZYEcXLgAXFuUuaS3uF9gEiNQwzGTU1v0FqkqTBr4B8nW3HCN47XUu0t8Y0\ne+lf4s4OxQawWD79J9/5d3Ry0vbV3Am1FtGJiJvOwRsIfVChDpYStTcHTCMqtvWb\nV6L11BWkpzGXSW4Hv43qa+GSYOD2QU68Mb59oSk2OB+BtOLpJofmbGEGgvmwyCI9\nMwIDAQAB\n-----END PUBLIC KEY-----";
 //! // const KEYCLOAK_PK: &str = "..."; // You should get this from configuration
@@ -72,11 +76,11 @@
 //!     required_roles: vec![],
 //! };
 //!
-//! // Admin role is required
+//! // Admin realm role is required
 //! let keycloak_auth_admin = KeycloakAuth {
 //!     detailed_responses: true,
 //!     keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-//!     required_roles: vec!["admin".to_owned()],
+//!     required_roles: vec![Role::Realm { role: "admin".to_owned() }],
 //! };
 //!
 //! App::new()
@@ -123,6 +127,7 @@ use futures_util::future::{ok, ready, Ready};
 use jsonwebtoken::{decode, decode_header, Validation};
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -138,7 +143,7 @@ pub struct KeycloakAuth {
     /// Public key to use to verify JWT
     pub keycloak_oid_public_key: DecodingKey<'static>,
     /// List of Keycloak roles that must be included in JWT
-    pub required_roles: Vec<String>,
+    pub required_roles: Vec<Role>,
 }
 
 impl<S, B> Transform<S> for KeycloakAuth
@@ -170,7 +175,7 @@ pub struct KeycloakAuthMiddleware<S> {
     service: S,
     detailed_responses: bool,
     keycloak_oid_public_key: DecodingKey<'static>,
-    required_roles: Vec<String>,
+    required_roles: Vec<Role>,
 }
 
 /// Claims that are extracted from JWT and can be accessed in handlers using a `ReqData<Claims>` parameter
@@ -178,28 +183,85 @@ pub struct KeycloakAuthMiddleware<S> {
 pub struct Claims {
     /// Subject of the JWT (usually, the user ID)
     pub sub: String,
-    /// Optional realm roles from Keycloak
-    pub realm_access: Option<RealmAccess>,
     /// Expiration date
     #[serde(with = "ts_seconds")]
     pub exp: DateTime<Utc>,
+    /// Optional realm roles from Keycloak
+    pub realm_access: Option<Access>,
+    /// Optional client roles from Keycloak
+    pub resource_access: Option<HashMap<String, Access>>,
 }
 
 impl Claims {
     /// Extract Keycloak roles
-    pub fn roles(&self) -> Vec<String> {
-        self.realm_access
+    pub fn roles(&self) -> Vec<Role> {
+        let mut roles = self
+            .realm_access
             .clone()
-            .map(|ra| ra.roles)
-            .unwrap_or_else(Vec::new)
+            .map(|ra| {
+                ra.roles
+                    .iter()
+                    .map(|role| Role::Realm {
+                        role: role.to_owned(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_else(Vec::new);
+
+        let mut client_roles = self
+            .resource_access
+            .clone()
+            .map(|ra| {
+                ra.iter()
+                    .flat_map(|(client_name, r)| {
+                        r.roles
+                            .iter()
+                            .map(|role| Role::Client {
+                                client: client_name.to_owned(),
+                                role: role.to_owned(),
+                            })
+                            .collect::<Vec<Role>>()
+                    })
+                    .collect()
+            })
+            .unwrap_or_else(Vec::new);
+
+        roles.append(&mut client_roles);
+        roles
     }
 }
 
-/// Realm-level access details
+/// Access details
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct RealmAccess {
-    /// Realm-level roles
+pub struct Access {
+    /// Roles
     pub roles: Vec<String>,
+}
+
+/// A realm or client role
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Role {
+    /// A realm role
+    Realm {
+        /// Name of the role
+        role: String,
+    },
+    /// A client role
+    Client {
+        /// Client ID
+        client: String,
+        /// Name of the role
+        role: String,
+    },
+}
+
+impl std::fmt::Display for Role {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Realm { role } => write!(f, "{}", role),
+            Self::Client { client, role } => write!(f, "{}.{}", client, role),
+        }
+    }
 }
 
 impl<S, B> Service for KeycloakAuthMiddleware<S>

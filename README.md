@@ -14,6 +14,7 @@ A middleware for [Actix Web](https://actix.rs/) that handles authentication with
 - deny HTTP requests that do not provide a valid JWT
 - require one or several Keycloak realm or client roles to be included in the JWT
 - error HTTP responses sent from the middleware can have generic bodies as well as detailed error reasons
+- access JWT claims from handlers (for example: get the ID of the authenticated user)
 
 ## Usage
 

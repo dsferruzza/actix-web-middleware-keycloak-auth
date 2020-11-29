@@ -1,6 +1,6 @@
 [package]
 name = "actix-web-middleware-keycloak-auth"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["David Sferruzza <david.sferruzza@gmail.com>"]
 edition = "2018"
 description = "A middleware for Actix Web that handles authentication with a JWT emitted by Keycloak"

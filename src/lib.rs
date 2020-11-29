@@ -194,7 +194,7 @@ pub struct Claims {
     /// Issuer
     pub iss: String,
     /// Audience
-    pub aud: String,
+    pub aud: Option<String>,
     /// Issuance date
     #[serde(with = "ts_seconds")]
     pub iat: DateTime<Utc>,
@@ -215,7 +215,7 @@ impl Default for Claims {
             realm_access: None,
             resource_access: None,
             iss: env!("CARGO_PKG_NAME").to_owned(),
-            aud: "account".to_owned(),
+            aud: Some("account".to_owned()),
             iat: Utc::now(),
             jti: Uuid::from_u128_le(22685491128062564230891640495451214097),
             azp: "".to_owned(),

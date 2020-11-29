@@ -6,6 +6,7 @@ edition = "2018"
 description = "A middleware for Actix Web that handles authentication with a JWT emitted by Keycloak"
 repository = "https://github.com/dsferruzza/actix-web-middleware-keycloak-auth"
 readme = "README.md"
+documentation = "https://docs.rs/actix-web-middleware-keycloak-auth"
 categories = ["authentication", "web-programming::http-server"]
 keywords = ["actix-web", "middleware", "authentication", "jwt", "keycloak"]
 license = "MIT"

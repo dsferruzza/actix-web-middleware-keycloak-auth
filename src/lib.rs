@@ -131,6 +131,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use uuid::Uuid;
 
 use errors::AuthError;
 use roles::check_roles;
@@ -181,8 +182,8 @@ pub struct KeycloakAuthMiddleware<S> {
 /// Claims that are extracted from JWT and can be accessed in handlers using a `ReqData<Claims>` parameter
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Claims {
-    /// Subject of the JWT (usually, the user ID)
-    pub sub: String,
+    /// Subject (usually, the user ID)
+    pub sub: Uuid,
     /// Expiration date
     #[serde(with = "ts_seconds")]
     pub exp: DateTime<Utc>,
@@ -190,6 +191,36 @@ pub struct Claims {
     pub realm_access: Option<Access>,
     /// Optional client roles from Keycloak
     pub resource_access: Option<HashMap<String, Access>>,
+    /// Issuer
+    pub iss: String,
+    /// Audience
+    pub aud: String,
+    /// Issuance date
+    #[serde(with = "ts_seconds")]
+    pub iat: DateTime<Utc>,
+    /// ID of the JWT
+    pub jti: Uuid,
+    /// Authorized party
+    pub azp: String,
+}
+
+impl Default for Claims {
+    fn default() -> Self {
+        use chrono::Duration;
+        use std::ops::Add;
+
+        Self {
+            sub: Uuid::from_u128_le(0),
+            exp: Utc::now().add(Duration::minutes(1)),
+            realm_access: None,
+            resource_access: None,
+            iss: env!("CARGO_PKG_NAME").to_owned(),
+            aud: "account".to_owned(),
+            iat: Utc::now(),
+            jti: Uuid::from_u128_le(22685491128062564230891640495451214097),
+            azp: "".to_owned(),
+        }
+    }
 }
 
 impl Claims {

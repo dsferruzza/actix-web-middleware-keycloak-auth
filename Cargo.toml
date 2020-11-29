@@ -19,7 +19,9 @@ futures-util = "0.3.8"
 log = "0.4.11"
 jsonwebtoken = "7.2.0"
 serde = { version = "1.0.117", features = ["derive"] }
+uuid = { version = "0.8.1", features = ["serde"] }
 
 [dev-dependencies]
 actix-rt = "1.1.1"
 env_logger = "0.8.2"
+uuid = { version = "0.8.1", features = ["serde", "v4"] }

@@ -40,7 +40,6 @@ pub fn check_roles(
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
     use jsonwebtoken::{Algorithm, Header};
     use std::collections::HashMap;
     use std::iter::FromIterator;
@@ -52,12 +51,7 @@ mod tests {
     fn no_required_no_provided() {
         let token = TokenData {
             header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: None,
-                resource_access: None,
-            },
+            claims: Claims::default(),
         };
         let required_roles = &[];
 
@@ -69,12 +63,10 @@ mod tests {
         let token = TokenData {
             header: Header::new(Algorithm::RS256),
             claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
                 realm_access: Some(Access {
                     roles: vec!["test1".to_owned(), "test2".to_owned()],
                 }),
-                resource_access: None,
+                ..Claims::default()
             },
         };
         let required_roles = &[];
@@ -86,12 +78,7 @@ mod tests {
     fn some_required_no_provided() {
         let token = TokenData {
             header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: None,
-                resource_access: None,
-            },
+            claims: Claims::default(),
         };
         let required_roles = &[
             Role::Realm {
@@ -122,12 +109,10 @@ mod tests {
         let token = TokenData {
             header: Header::new(Algorithm::RS256),
             claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
                 realm_access: Some(Access {
                     roles: vec!["test2".to_owned()],
                 }),
-                resource_access: None,
+                ..Claims::default()
             },
         };
         let required_roles = &[
@@ -154,12 +139,10 @@ mod tests {
         let token = TokenData {
             header: Header::new(Algorithm::RS256),
             claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
                 realm_access: Some(Access {
                     roles: vec!["test1".to_owned(), "test2".to_owned()],
                 }),
-                resource_access: None,
+                ..Claims::default()
             },
         };
         let required_roles = &[
@@ -179,12 +162,10 @@ mod tests {
         let token = TokenData {
             header: Header::new(Algorithm::RS256),
             claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
                 realm_access: Some(Access {
                     roles: vec!["test1".to_owned(), "test2".to_owned(), "test3".to_owned()],
                 }),
-                resource_access: None,
+                ..Claims::default()
             },
         };
         let required_roles = &[
@@ -204,8 +185,6 @@ mod tests {
         let token = TokenData {
             header: Header::new(Algorithm::RS256),
             claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
                 realm_access: Some(Access {
                     roles: vec!["test1".to_owned(), "test2".to_owned()],
                 }),
@@ -224,6 +203,7 @@ mod tests {
                     ),
                     ("client3".to_owned(), Access { roles: vec![] }),
                 ])),
+                ..Claims::default()
             },
         };
         let required_roles = &[
@@ -255,9 +235,6 @@ mod tests {
         let token = TokenData {
             header: Header::new(Algorithm::RS256),
             claims: Claims {
-                sub: "".to_owned(),
-                exp: Utc::now(),
-                realm_access: None,
                 resource_access: Some(HashMap::from_iter(vec![
                     (
                         "client1".to_owned(),
@@ -273,6 +250,7 @@ mod tests {
                     ),
                     ("client3".to_owned(), Access { roles: vec![] }),
                 ])),
+                ..Claims::default()
             },
         };
         let required_roles = &[

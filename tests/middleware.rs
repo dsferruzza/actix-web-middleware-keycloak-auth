@@ -7,11 +7,10 @@ use actix_web::http::StatusCode;
 use actix_web::web::{Bytes, ReqData};
 use actix_web::{test, web, App, HttpResponse, Responder};
 use actix_web_middleware_keycloak_auth::{Access, Claims, KeycloakAuth, Role};
-use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
 use std::collections::HashMap;
 use std::iter::FromIterator;
-use std::ops::Add;
+use uuid::Uuid;
 
 const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv
@@ -85,7 +84,7 @@ async fn hello_world() -> impl Responder {
 }
 
 async fn private(claims: ReqData<Claims>) -> impl Responder {
-    HttpResponse::Ok().body(&claims.sub)
+    HttpResponse::Ok().body(&claims.sub.to_string())
 }
 
 #[actix_rt::test]
@@ -239,12 +238,7 @@ async fn invalid_jwt_signature() {
     )
     .await;
 
-    let claims = Claims {
-        exp: Utc::now().add(Duration::minutes(1)),
-        sub: "".to_owned(),
-        realm_access: None,
-        resource_access: None,
-    };
+    let claims = Claims::default();
     let jwt = encode(
         &Header::new(Algorithm::RS256),
         &claims,
@@ -279,12 +273,10 @@ async fn valid_jwt() {
     )
     .await;
 
-    let user_id = "user_42";
+    let user_id = Uuid::new_v4();
     let claims = Claims {
-        exp: Utc::now().add(Duration::minutes(1)),
         sub: user_id.to_owned(),
-        realm_access: None,
-        resource_access: None,
+        ..Claims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -299,7 +291,7 @@ async fn valid_jwt() {
 
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
-    assert_eq!(body, Bytes::from_static(user_id.as_bytes()));
+    assert_eq!(body, Bytes::from(user_id.to_string()));
 }
 
 #[actix_rt::test]
@@ -327,14 +319,13 @@ async fn missing_jwt_roles() {
     )
     .await;
 
-    let user_id = "user_42";
+    let user_id = Uuid::new_v4();
     let claims = Claims {
-        exp: Utc::now().add(Duration::minutes(1)),
         sub: user_id.to_owned(),
         realm_access: Some(Access {
             roles: vec!["test2".to_owned()],
         }),
-        resource_access: None,
+        ..Claims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -381,9 +372,8 @@ async fn valid_jwt_roles() {
     )
     .await;
 
-    let user_id = "user_42";
+    let user_id = Uuid::new_v4();
     let claims = Claims {
-        exp: Utc::now().add(Duration::minutes(1)),
         sub: user_id.to_owned(),
         realm_access: Some(Access {
             roles: vec!["test2".to_owned(), "test1".to_owned()],
@@ -394,6 +384,7 @@ async fn valid_jwt_roles() {
                 roles: vec!["test3".to_owned()],
             },
         )])),
+        ..Claims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -408,5 +399,5 @@ async fn valid_jwt_roles() {
 
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
-    assert_eq!(body, Bytes::from_static(user_id.as_bytes()));
+    assert_eq!(body, Bytes::from(user_id.to_string()));
 }

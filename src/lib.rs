@@ -346,37 +346,49 @@ where
 
                                                 Box::pin(self.service.call(req))
                                             }
-                                            Err(e) => Box::pin(ready(Ok(req.into_response(
-                                                e.to_response(self.detailed_responses).into_body(),
-                                            )))),
+                                            Err(e) => {
+                                                debug!("{}", &e);
+                                                Box::pin(ready(Ok(req.into_response(
+                                                    e.to_response(self.detailed_responses)
+                                                        .into_body(),
+                                                ))))
+                                            }
                                         }
                                     }
-                                    Err(e) => Box::pin(ready(Ok(req.into_response(
-                                        AuthError::DecodeError(e.to_string())
-                                            .to_response(self.detailed_responses)
-                                            .into_body(),
-                                    )))),
+                                    Err(e) => {
+                                        let e = AuthError::DecodeError(e.to_string());
+                                        debug!("{}", &e);
+                                        Box::pin(ready(Ok(req.into_response(
+                                            e.to_response(self.detailed_responses).into_body(),
+                                        ))))
+                                    }
                                 }
                             }
-                            Err(e) => Box::pin(ready(Ok(req.into_response(
-                                AuthError::InvalidJwt(e.to_string())
-                                    .to_response(self.detailed_responses)
-                                    .into_body(),
-                            )))),
+                            Err(e) => {
+                                let e = AuthError::InvalidJwt(e.to_string());
+                                debug!("{}", &e);
+                                Box::pin(ready(Ok(req.into_response(
+                                    e.to_response(self.detailed_responses).into_body(),
+                                ))))
+                            }
                         }
                     }
-                    Err(_) => Box::pin(ready(Ok(req.into_response(
-                        AuthError::InvalidAuthorizationHeader
-                            .to_response(self.detailed_responses)
-                            .into_body(),
-                    )))),
+                    Err(_) => {
+                        let e = AuthError::InvalidAuthorizationHeader;
+                        debug!("{}", &e);
+                        Box::pin(ready(Ok(req.into_response(
+                            e.to_response(self.detailed_responses).into_body(),
+                        ))))
+                    }
                 }
             }
-            None => Box::pin(ready(Ok(req.into_response(
-                AuthError::NoBearerToken
-                    .to_response(self.detailed_responses)
-                    .into_body(),
-            )))),
+            None => {
+                let e = AuthError::NoBearerToken;
+                debug!("{}", &e);
+                Box::pin(ready(Ok(req.into_response(
+                    e.to_response(self.detailed_responses).into_body(),
+                ))))
+            }
         }
     }
 }

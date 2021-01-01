@@ -87,8 +87,15 @@ async fn private(claims: ReqData<Claims>) -> impl Responder {
     HttpResponse::Ok().body(&claims.sub.to_string())
 }
 
+fn init_logger() {
+    std::env::set_var("RUST_LOG", "trace");
+    let _ = env_logger::builder().is_test(true).try_init();
+}
+
 #[actix_rt::test]
 async fn unprotected_route() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
@@ -113,6 +120,8 @@ async fn unprotected_route() {
 
 #[actix_rt::test]
 async fn no_bearer_token() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
@@ -139,6 +148,8 @@ async fn no_bearer_token() {
 
 #[actix_rt::test]
 async fn no_bearer_token_no_debug() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: false,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
@@ -166,6 +177,8 @@ async fn no_bearer_token_no_debug() {
 
 #[actix_rt::test]
 async fn no_bearer_in_authorization_header() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
@@ -194,6 +207,8 @@ async fn no_bearer_in_authorization_header() {
 
 #[actix_rt::test]
 async fn invalid_jwt() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
@@ -222,6 +237,8 @@ async fn invalid_jwt() {
 
 #[actix_rt::test]
 async fn invalid_jwt_signature() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
@@ -257,6 +274,8 @@ async fn invalid_jwt_signature() {
 
 #[actix_rt::test]
 async fn valid_jwt() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
@@ -296,6 +315,8 @@ async fn valid_jwt() {
 
 #[actix_rt::test]
 async fn missing_jwt_roles() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
@@ -345,6 +366,8 @@ async fn missing_jwt_roles() {
 
 #[actix_rt::test]
 async fn valid_jwt_roles() {
+    init_logger();
+
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.0
+
+- allow `aud` claim to be extracted from either a JSON string or a JSON sequence of strings (as stated in the [JWT spec](https://tools.ietf.org/html/rfc7519#section-4.1.3))
+
 ## v0.2.0
 
 - support client roles

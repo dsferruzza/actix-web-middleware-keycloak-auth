@@ -194,7 +194,10 @@ pub struct Claims {
     /// Issuer
     pub iss: String,
     /// Audience
-    pub aud: Option<String>,
+    ///
+    /// _This can be extracted from either a JSON string or a JSON sequence of strings._
+    #[serde(default, deserialize_with = "deserialize_optional_string_or_strings")]
+    pub aud: Option<Vec<String>>,
     /// Issuance date
     #[serde(with = "ts_seconds")]
     pub iat: DateTime<Utc>,
@@ -202,6 +205,24 @@ pub struct Claims {
     pub jti: Uuid,
     /// Authorized party
     pub azp: String,
+}
+
+fn deserialize_optional_string_or_strings<'de, D>(de: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: ::serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrVec {
+        String(String),
+        Vec(Vec<String>),
+    }
+
+    Option::<StringOrVec>::deserialize(de).map(|string_or_vec| match string_or_vec {
+        Some(StringOrVec::String(string)) => Some(vec![string]),
+        Some(StringOrVec::Vec(vec)) => Some(vec),
+        None => None,
+    })
 }
 
 impl Default for Claims {
@@ -215,7 +236,7 @@ impl Default for Claims {
             realm_access: None,
             resource_access: None,
             iss: env!("CARGO_PKG_NAME").to_owned(),
-            aud: Some("account".to_owned()),
+            aud: Some(vec!["account".to_owned()]),
             iat: Utc::now(),
             jti: Uuid::from_u128_le(22685491128062564230891640495451214097),
             azp: "".to_owned(),
@@ -390,5 +411,83 @@ where
                 ))))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{from_value, json};
+
+    #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+    struct StringOrVec {
+        field: u8,
+        #[serde(default, deserialize_with = "deserialize_optional_string_or_strings")]
+        string_or_vec: Option<Vec<String>>,
+    }
+
+    #[test]
+    fn deserialize_string_or_vec_when_vec() {
+        let input = json!({
+            "field": 1,
+            "string_or_vec": ["1", "2"],
+        });
+        let output = from_value::<StringOrVec>(input);
+        assert_eq!(
+            output.ok(),
+            Some(StringOrVec {
+                field: 1,
+                string_or_vec: Some(vec!["1".to_owned(), "2".to_owned()]),
+            })
+        )
+    }
+
+    #[test]
+    fn deserialize_string_or_vec_when_string() {
+        let input = json!({
+            "field": 1,
+            "string_or_vec": "1",
+        });
+        let output = from_value::<StringOrVec>(input);
+        assert_eq!(
+            output.ok(),
+            Some(StringOrVec {
+                field: 1,
+                string_or_vec: Some(vec!["1".to_owned()]),
+            })
+        )
+    }
+
+    #[test]
+    fn deserialize_string_or_vec_when_none() {
+        let input = json!({
+            "field": 1,
+        });
+        let output = from_value::<StringOrVec>(input);
+        dbg!(&output);
+        assert_eq!(
+            output.ok(),
+            Some(StringOrVec {
+                field: 1,
+                string_or_vec: None,
+            })
+        )
+    }
+
+    #[test]
+    fn deserialize_string_or_vec_when_null() {
+        let input = json!({
+            "field": 1,
+            "string_or_vec": null,
+        });
+        let output = from_value::<StringOrVec>(input);
+        dbg!(&output);
+        assert_eq!(
+            output.ok(),
+            Some(StringOrVec {
+                field: 1,
+                string_or_vec: None,
+            })
+        )
     }
 }

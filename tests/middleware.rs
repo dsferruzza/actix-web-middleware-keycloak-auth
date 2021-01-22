@@ -8,6 +8,7 @@ use actix_web::web::{Bytes, ReqData};
 use actix_web::{test, web, App, HttpResponse, Responder};
 use actix_web_middleware_keycloak_auth::{Access, Claims, KeycloakAuth, Role};
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
+use serde_json::json;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use uuid::Uuid;
@@ -409,6 +410,65 @@ async fn valid_jwt_roles() {
         )])),
         ..Claims::default()
     };
+    let jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+    let req = test::TestRequest::with_uri("/private")
+        .header("Authorization", format!("Bearer {}", &jwt))
+        .to_request();
+    let resp = test::call_service(&mut app, req).await;
+
+    assert!(resp.status().is_success());
+    let body = test::read_body(resp).await;
+    assert_eq!(body, Bytes::from(user_id.to_string()));
+}
+
+#[actix_rt::test]
+async fn from_raw_claims_single_aud_as_string() {
+    init_logger();
+
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![Role::Client {
+            client: "client1".to_owned(),
+            role: "test1".to_owned(),
+        }],
+    };
+    let mut app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(private)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let user_id = Uuid::new_v4();
+    let default = Claims::default();
+    let claims = json!({
+        "sub": user_id,
+        "resource_access": {
+            "client1": {
+                "roles": ["test1"],
+            },
+            "client2": {
+                "roles": ["test2"],
+            },
+        },
+        // Defaults
+        "exp": default.exp.timestamp(),
+        "iss": default.iss,
+        "aud": "some-aud",
+        "iat": default.iat.timestamp(),
+        "jti": default.jti,
+        "azp": default.azp,
+    });
     let jwt = encode(
         &Header::new(Algorithm::RS256),
         &claims,

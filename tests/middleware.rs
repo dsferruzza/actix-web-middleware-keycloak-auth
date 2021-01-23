@@ -212,7 +212,7 @@ async fn no_bearer_in_authorization_header() {
     .await;
 
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", "test")
+        .insert_header(("Authorization", "test"))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
 
@@ -242,7 +242,7 @@ async fn invalid_jwt() {
     .await;
 
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", "Bearer test")
+        .insert_header(("Authorization", "Bearer test"))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
 
@@ -279,7 +279,7 @@ async fn invalid_jwt_signature() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
 
@@ -320,7 +320,7 @@ async fn valid_jwt() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
 
@@ -371,7 +371,7 @@ async fn missing_jwt_roles() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
 
@@ -432,7 +432,7 @@ async fn valid_jwt_roles() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
 
@@ -491,7 +491,7 @@ async fn from_raw_claims_single_aud_as_string() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
 
@@ -541,7 +541,7 @@ async fn with_custom_claims() {
     .unwrap();
 
     let req = test::TestRequest::with_uri("/private/ok")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
     assert!(resp.status().is_success());
@@ -549,7 +549,7 @@ async fn with_custom_claims() {
     assert_eq!(body, Bytes::from("[\"some\",\"values\"]".to_string()));
 
     let req = test::TestRequest::with_uri("/private/failed")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
     let resp = test::call_service(&mut app, req).await;
     assert!(resp.status().is_server_error());

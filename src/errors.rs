@@ -64,3 +64,21 @@ impl AuthError {
         }
     }
 }
+
+/// An error that happened while trying to extract and parse an unstructured claim
+#[derive(Debug)]
+pub enum ClaimError {
+    /// The claim cannot be found
+    NotFound(String),
+    /// The claim cannot be parsed as the provided/inferred type
+    ParseError(String, serde_json::Error),
+}
+
+impl std::fmt::Display for ClaimError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound(key) => write!(f, "Claim '{}' was not found", key),
+            Self::ParseError(key, err) => write!(f, "Parsing claim '{}' failed: {}", key, err),
+        }
+    }
+}

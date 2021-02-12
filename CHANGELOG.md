@@ -1,5 +1,9 @@
 # Changelog
 
+## unreleased
+
+- handle extraction and parsing of custom JWT claims
+
 ## v0.3.0
 
 - allow `aud` claim to be extracted from either a JSON string or a JSON sequence of strings (as stated in the [JWT spec](https://tools.ietf.org/html/rfc7519#section-4.1.3))

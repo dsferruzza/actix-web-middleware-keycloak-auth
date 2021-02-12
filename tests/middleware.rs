@@ -6,9 +6,9 @@
 use actix_web::http::StatusCode;
 use actix_web::web::{Bytes, ReqData};
 use actix_web::{test, web, App, HttpResponse, Responder};
-use actix_web_middleware_keycloak_auth::{Access, Claims, KeycloakAuth, Role};
+use actix_web_middleware_keycloak_auth::{Access, Claims, KeycloakAuth, Role, UnstructuredClaims};
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
-use serde_json::json;
+use serde_json::{json, to_string};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use uuid::Uuid;
@@ -86,6 +86,22 @@ async fn hello_world() -> impl Responder {
 
 async fn private(claims: ReqData<Claims>) -> impl Responder {
     HttpResponse::Ok().body(&claims.sub.to_string())
+}
+
+async fn other_claim(unstructured_claims: ReqData<UnstructuredClaims>) -> impl Responder {
+    let res = match unstructured_claims.get::<Vec<String>>("other") {
+        Ok(val) => to_string(&val).unwrap(),
+        Err(err) => err.to_string(),
+    };
+    HttpResponse::Ok().body(res)
+}
+
+async fn other_claim_failed(unstructured_claims: ReqData<UnstructuredClaims>) -> impl Responder {
+    let res = match unstructured_claims.get::<Vec<u8>>("other") {
+        Ok(val) => to_string(&val).unwrap(),
+        Err(err) => err.to_string(),
+    };
+    HttpResponse::InternalServerError().body(res)
 }
 
 fn init_logger() {
@@ -482,4 +498,61 @@ async fn from_raw_claims_single_aud_as_string() {
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
     assert_eq!(body, Bytes::from(user_id.to_string()));
+}
+
+#[actix_rt::test]
+async fn with_custom_claims() {
+    init_logger();
+
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+    let mut app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("/ok", web::get().to(other_claim))
+                    .route("/failed", web::get().to(other_claim_failed)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let default = Claims::default();
+    let claims = json!({
+        "other": vec!["some", "values"],
+        // Defaults
+        "sub": default.sub,
+        "exp": default.exp.timestamp(),
+        "iss": default.iss,
+        "aud": "some-aud",
+        "iat": default.iat.timestamp(),
+        "jti": default.jti,
+        "azp": default.azp,
+    });
+    let jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+
+    let req = test::TestRequest::with_uri("/private/ok")
+        .header("Authorization", format!("Bearer {}", &jwt))
+        .to_request();
+    let resp = test::call_service(&mut app, req).await;
+    assert!(resp.status().is_success());
+    let body = test::read_body(resp).await;
+    assert_eq!(body, Bytes::from("[\"some\",\"values\"]".to_string()));
+
+    let req = test::TestRequest::with_uri("/private/failed")
+        .header("Authorization", format!("Bearer {}", &jwt))
+        .to_request();
+    let resp = test::call_service(&mut app, req).await;
+    assert!(resp.status().is_server_error());
+    let body = test::read_body(resp).await;
+    assert!(String::from_utf8(body.to_vec()).unwrap().contains("other"));
 }

@@ -97,9 +97,9 @@
 //!     .service(web::resource("/").to(|| HttpResponse::Ok().body("Hello World")));
 //! ```
 //!
-//! ## Access claims in handlers
+//! ## Access standard claims in handlers
 //!
-//! When authentication is successful, the middleware will store the decoded claims so that they can be accessed from handlers.
+//! When authentication is successful, the middleware will store the decoded standard JWT claims so that they can be accessed from handlers.
 //!
 //! ```
 //! use actix_web::web::ReqData;
@@ -108,6 +108,43 @@
 //!
 //! async fn private(claims: ReqData<Claims>) -> impl Responder {
 //!     HttpResponse::Ok().body(format!("{:?}", &claims))
+//! }
+//! ```
+//!
+//! ## Access custom claims in handlers
+//!
+//! ### Full dump
+//!
+//! It is possible to access custom claims, i.e. claims that are not standard JWT claims but that are included in the JWT even so.
+//! These unstructured claims are available as a [HashMap](HashMap) from [String](String) to JSON [Value](Value).
+//!
+//! ```
+//! use actix_web::web::ReqData;
+//! use actix_web::{HttpResponse, Responder};
+//! use actix_web_middleware_keycloak_auth::UnstructuredClaims;
+//! use std::collections::HashMap;
+//!
+//! async fn private(unstructured_claims: ReqData<UnstructuredClaims>) -> impl Responder {
+//!     let claims: HashMap<String, serde_json::Value> = unstructured_claims.0.clone();
+//!     HttpResponse::Ok().body(format!("{:?}", &claims))
+//! }
+//! ```
+//!
+//! ### Extract and parse
+//!
+//! As a convenience method, it is also possible to extract and parse a given claim at once.
+//! The target type must implement [Deserialize](Deserialize).
+//! If something fails, the returned [Result](Result) will contain a [ClaimError](ClaimError) enum that can tell which one of the extractiong or parsing step failed (and why).
+//!
+//! ```
+//! use actix_web::web::ReqData;
+//! use actix_web::{HttpResponse, Responder};
+//! use actix_web_middleware_keycloak_auth::UnstructuredClaims;
+//! use std::collections::HashMap;
+//!
+//! async fn private(unstructured_claims: ReqData<UnstructuredClaims>) -> impl Responder {
+//!     let some_claim = unstructured_claims.get::<Vec<String>>("some_claim");
+//!     HttpResponse::Ok().body(format!("{:?}", &some_claim))
 //! }
 //! ```
 
@@ -126,7 +163,9 @@ use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures_util::future::{ok, ready, Ready};
 use jsonwebtoken::{decode, decode_header, Validation};
 use log::{debug, trace};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::{from_value, Value};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -134,6 +173,7 @@ use std::task::{Context, Poll};
 use uuid::Uuid;
 
 use errors::AuthError;
+pub use errors::ClaimError;
 use roles::check_roles;
 
 /// Middleware configuration
@@ -316,6 +356,23 @@ impl std::fmt::Display for Role {
     }
 }
 
+/// All claims that are extracted from JWT in an unstructured way (available as a [HashMap](HashMap)) and can be accessed in handlers using a `ReqData<UnstructuredClaims>` parameter
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnstructuredClaims(pub HashMap<String, Value>);
+
+impl UnstructuredClaims {
+    /// Try to extract and parse a given claim
+    pub fn get<T: DeserializeOwned>(&self, key: &str) -> Result<T, ClaimError> {
+        self.0
+            .get(key)
+            .ok_or_else(|| ClaimError::NotFound(key.to_owned()))
+            .and_then(|val| {
+                from_value(val.to_owned())
+                    .map_err(|err| ClaimError::ParseError(key.to_owned(), err))
+            })
+    }
+}
+
 impl<S, B> Service for KeycloakAuthMiddleware<S>
 where
     S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
@@ -348,12 +405,19 @@ where
                                 debug!("JWT header was decoded");
                                 debug!("JWT is using {:?} algorithm", &jwt_header.alg);
 
-                                match decode::<Claims>(
-                                    &token,
-                                    &self.keycloak_oid_public_key,
-                                    &Validation::new(jwt_header.alg),
+                                match (
+                                    decode::<Claims>(
+                                        &token,
+                                        &self.keycloak_oid_public_key,
+                                        &Validation::new(jwt_header.alg),
+                                    ),
+                                    decode::<HashMap<String, Value>>(
+                                        &token,
+                                        &self.keycloak_oid_public_key,
+                                        &Validation::new(jwt_header.alg),
+                                    ),
                                 ) {
-                                    Ok(token) => {
+                                    (Ok(token), Ok(kv_token)) => {
                                         debug!("JWT was decoded");
 
                                         match check_roles(token, &self.required_roles) {
@@ -363,6 +427,9 @@ where
                                                 {
                                                     let mut extensions = req.extensions_mut();
                                                     extensions.insert(token_data.claims);
+                                                    extensions.insert(UnstructuredClaims(
+                                                        kv_token.claims,
+                                                    ));
                                                 }
 
                                                 Box::pin(self.service.call(req))
@@ -376,7 +443,7 @@ where
                                             }
                                         }
                                     }
-                                    Err(e) => {
+                                    (Err(e), _) | (_, Err(e)) => {
                                         let e = AuthError::DecodeError(e.to_string());
                                         debug!("{}", &e);
                                         Box::pin(ready(Ok(req.into_response(

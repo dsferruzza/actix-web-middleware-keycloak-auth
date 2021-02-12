@@ -172,7 +172,6 @@ async fn no_bearer_token_no_debug() {
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
-    dbg!(&body);
     assert_eq!(body, StatusCode::UNAUTHORIZED.to_string());
 }
 

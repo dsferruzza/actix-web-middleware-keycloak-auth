@@ -118,7 +118,7 @@ async fn unprotected_route() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -130,7 +130,7 @@ async fn unprotected_route() {
     .await;
 
     let req = test::TestRequest::with_uri("/").to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
 }
@@ -144,7 +144,7 @@ async fn no_bearer_token() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -156,7 +156,7 @@ async fn no_bearer_token() {
     .await;
 
     let req = test::TestRequest::with_uri("/private").to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -172,7 +172,7 @@ async fn no_bearer_token_no_debug() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -184,7 +184,7 @@ async fn no_bearer_token_no_debug() {
     .await;
 
     let req = test::TestRequest::with_uri("/private").to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -200,7 +200,7 @@ async fn no_bearer_in_authorization_header() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -214,7 +214,7 @@ async fn no_bearer_in_authorization_header() {
     let req = test::TestRequest::with_uri("/private")
         .insert_header(("Authorization", "test"))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -230,7 +230,7 @@ async fn invalid_jwt() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -244,7 +244,7 @@ async fn invalid_jwt() {
     let req = test::TestRequest::with_uri("/private")
         .insert_header(("Authorization", "Bearer test"))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -260,7 +260,7 @@ async fn invalid_jwt_signature() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -281,7 +281,7 @@ async fn invalid_jwt_signature() {
     let req = test::TestRequest::with_uri("/private")
         .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -297,7 +297,7 @@ async fn valid_jwt() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -322,7 +322,7 @@ async fn valid_jwt() {
     let req = test::TestRequest::with_uri("/private")
         .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
@@ -345,7 +345,7 @@ async fn missing_jwt_roles() {
             },
         ],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -373,7 +373,7 @@ async fn missing_jwt_roles() {
     let req = test::TestRequest::with_uri("/private")
         .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let body = test::read_body(resp).await;
@@ -400,7 +400,7 @@ async fn valid_jwt_roles() {
             },
         ],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -434,7 +434,7 @@ async fn valid_jwt_roles() {
     let req = test::TestRequest::with_uri("/private")
         .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
@@ -453,7 +453,7 @@ async fn from_raw_claims_single_aud_as_string() {
             role: "test1".to_owned(),
         }],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -493,7 +493,7 @@ async fn from_raw_claims_single_aud_as_string() {
     let req = test::TestRequest::with_uri("/private")
         .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
@@ -509,7 +509,7 @@ async fn with_custom_claims() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -543,7 +543,7 @@ async fn with_custom_claims() {
     let req = test::TestRequest::with_uri("/private/ok")
         .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
     assert_eq!(body, Bytes::from("[\"some\",\"values\"]".to_string()));
@@ -551,7 +551,7 @@ async fn with_custom_claims() {
     let req = test::TestRequest::with_uri("/private/failed")
         .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
     assert!(resp.status().is_server_error());
     let body = test::read_body(resp).await;
     assert!(String::from_utf8(body.to_vec()).unwrap().contains("other"));

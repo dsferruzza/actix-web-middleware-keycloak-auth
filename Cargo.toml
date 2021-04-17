@@ -14,9 +14,9 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-web = "4.0.0-beta.5"
+actix-web = "4.0.0-beta.6"
 chrono = { version = "0.4.19", features = ["serde"] }
-futures-util = "0.3.13"
+futures-util = "0.3.14"
 log = "0.4.14"
 jsonwebtoken = "7.2.0"
 serde = { version = "1.0.125", features = ["derive"] }

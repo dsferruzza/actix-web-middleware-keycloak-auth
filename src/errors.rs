@@ -27,7 +27,7 @@ impl ResponseError for AuthError {
     }
 
     fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code()).body(&self.to_string())
+        HttpResponse::new(self.status_code()).set_body(self.to_string().into())
     }
 }
 

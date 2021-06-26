@@ -157,8 +157,9 @@ mod roles;
 /// _(Re-exported from the `jsonwebtoken` crate)_
 pub use jsonwebtoken::DecodingKey;
 
+use actix_web::body::AnyBody;
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
-use actix_web::{Error, HttpMessage};
+use actix_web::{Error, HttpMessage, HttpResponse};
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures_util::future::{ok, ready, Ready};
 use jsonwebtoken::{decode, decode_header, Validation};
@@ -187,13 +188,12 @@ pub struct KeycloakAuth {
     pub required_roles: Vec<Role>,
 }
 
-impl<S, B> Transform<S, ServiceRequest> for KeycloakAuth
+impl<S> Transform<S, ServiceRequest> for KeycloakAuth
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<AnyBody>;
     type Error = Error;
     type InitError = ();
     type Transform = KeycloakAuthMiddleware<S>;
@@ -372,13 +372,12 @@ impl UnstructuredClaims {
     }
 }
 
-impl<S, B> Service<ServiceRequest> for KeycloakAuthMiddleware<S>
+impl<S> Service<ServiceRequest> for KeycloakAuthMiddleware<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<AnyBody>;
     type Error = Error;
     #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
@@ -435,8 +434,7 @@ where
                                             Err(e) => {
                                                 debug!("{}", &e);
                                                 Box::pin(ready(Ok(req.into_response(
-                                                    e.to_response(self.detailed_responses)
-                                                        .into_body(),
+                                                    e.to_response(self.detailed_responses),
                                                 ))))
                                             }
                                         }
@@ -444,17 +442,18 @@ where
                                     (Err(e), _) | (_, Err(e)) => {
                                         let e = AuthError::DecodeError(e.to_string());
                                         debug!("{}", &e);
-                                        Box::pin(ready(Ok(req.into_response(
-                                            e.to_response(self.detailed_responses).into_body(),
-                                        ))))
+                                        Box::pin(ready(Ok(req
+                                            .into_response::<AnyBody, HttpResponse>(
+                                                e.to_response(self.detailed_responses),
+                                            ))))
                                     }
                                 }
                             }
                             Err(e) => {
                                 let e = AuthError::InvalidJwt(e.to_string());
                                 debug!("{}", &e);
-                                Box::pin(ready(Ok(req.into_response(
-                                    e.to_response(self.detailed_responses).into_body(),
+                                Box::pin(ready(Ok(req.into_response::<AnyBody, HttpResponse>(
+                                    e.to_response(self.detailed_responses),
                                 ))))
                             }
                         }
@@ -462,8 +461,8 @@ where
                     Err(_) => {
                         let e = AuthError::InvalidAuthorizationHeader;
                         debug!("{}", &e);
-                        Box::pin(ready(Ok(req.into_response(
-                            e.to_response(self.detailed_responses).into_body(),
+                        Box::pin(ready(Ok(req.into_response::<AnyBody, HttpResponse>(
+                            e.to_response(self.detailed_responses),
                         ))))
                     }
                 }
@@ -471,8 +470,8 @@ where
             None => {
                 let e = AuthError::NoBearerToken;
                 debug!("{}", &e);
-                Box::pin(ready(Ok(req.into_response(
-                    e.to_response(self.detailed_responses).into_body(),
+                Box::pin(ready(Ok(req.into_response::<AnyBody, HttpResponse>(
+                    e.to_response(self.detailed_responses),
                 ))))
             }
         }

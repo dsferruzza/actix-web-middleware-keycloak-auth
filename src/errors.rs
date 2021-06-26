@@ -3,9 +3,8 @@
 // Copyright: 2020, David Sferruzza
 // License: MIT
 
-use actix_web::body::Body;
 use actix_web::http::StatusCode;
-use actix_web::{BaseHttpResponse, HttpResponse, ResponseError};
+use actix_web::{HttpResponse, ResponseError};
 
 use crate::Role;
 
@@ -27,8 +26,8 @@ impl ResponseError for AuthError {
         }
     }
 
-    fn error_response(&self) -> BaseHttpResponse<Body> {
-        BaseHttpResponse::with_body(self.status_code(), self.to_string().into())
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::new(self.status_code()).set_body(self.to_string().into())
     }
 }
 
@@ -59,7 +58,7 @@ impl std::fmt::Display for AuthError {
 impl AuthError {
     pub fn to_response(&self, detailed_responses: bool) -> HttpResponse {
         if detailed_responses {
-            self.error_response().into()
+            self.error_response()
         } else {
             HttpResponse::build(self.status_code()).body(self.status_code().to_string())
         }

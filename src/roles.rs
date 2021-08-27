@@ -26,7 +26,7 @@ pub fn check_roles(
 
     let mut missing_roles = vec![];
     for role in required_roles {
-        if !roles.contains(&role) {
+        if !roles.contains(role) {
             missing_roles.push(role.clone());
         }
     }

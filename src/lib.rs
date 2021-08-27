@@ -404,12 +404,12 @@ where
 
                                 match (
                                     decode::<Claims>(
-                                        &token,
+                                        token,
                                         &self.keycloak_oid_public_key,
                                         &Validation::new(jwt_header.alg),
                                     ),
                                     decode::<HashMap<String, Value>>(
-                                        &token,
+                                        token,
                                         &self.keycloak_oid_public_key,
                                         &Validation::new(jwt_header.alg),
                                     ),

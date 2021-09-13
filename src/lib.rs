@@ -111,7 +111,7 @@
 //! }
 //! ```
 //!
-//! ## Access custom claims in handlers
+//! ## Access custom claims in handlers: without Serde
 //!
 //! ### Full dump
 //!
@@ -147,11 +147,36 @@
 //!     HttpResponse::Ok().body(format!("{:?}", &some_claim))
 //! }
 //! ```
+//!
+//! ## Access custom claims in handlers: with Serde
+//!
+//! Another way to extract non-standard JWT claims is to define a struct that implements Serde's [Deserialize](Deserialize) trait, and use the provided [CustomClaims](CustomClaims) extractor.
+//! Deserialization failure will result in a HTTP 403 error.
+//!
+//! ```
+//! use actix_web::{HttpResponse, Responder};
+//! use actix_web_middleware_keycloak_auth::CustomClaims;
+//! use serde::Deserialize;
+//!
+//! #[derive(Debug, Deserialize)]
+//! pub struct MyClaims {
+//!   any_fields: u32,
+//!   that_money: String,
+//!   can_buy: Vec<String>,
+//! }
+//!
+//! async fn private(claims: CustomClaims<MyClaims>) -> impl Responder {
+//!     HttpResponse::Ok().body(format!("{:?}", &claims))
+//! }
+//! ```
+//!
+//! _Of course, both methods (with or without Serde) are compatible._
 
 // Force exposed items to be documented
 #![deny(missing_docs)]
 
 mod errors;
+mod extractor;
 mod roles;
 
 /// _(Re-exported from the `jsonwebtoken` crate)_
@@ -175,6 +200,7 @@ use uuid::Uuid;
 
 use errors::AuthError;
 pub use errors::ClaimError;
+pub use extractor::CustomClaims;
 use roles::check_roles;
 
 /// Middleware configuration
@@ -372,6 +398,10 @@ impl UnstructuredClaims {
     }
 }
 
+/// All claims that are extracted from JWT in an unstructured way that is easy to deserialize into a custom struct using Serde
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct RawClaims(pub Value);
+
 impl<S> Service<ServiceRequest> for KeycloakAuthMiddleware<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
@@ -413,8 +443,13 @@ where
                                         &self.keycloak_oid_public_key,
                                         &Validation::new(jwt_header.alg),
                                     ),
+                                    decode::<Value>(
+                                        token,
+                                        &self.keycloak_oid_public_key,
+                                        &Validation::new(jwt_header.alg),
+                                    ),
                                 ) {
-                                    (Ok(token), Ok(kv_token)) => {
+                                    (Ok(token), Ok(kv_token), Ok(raw_token)) => {
                                         debug!("JWT was decoded");
 
                                         match check_roles(token, &self.required_roles) {
@@ -427,6 +462,7 @@ where
                                                     extensions.insert(UnstructuredClaims(
                                                         kv_token.claims,
                                                     ));
+                                                    extensions.insert(RawClaims(raw_token.claims));
                                                 }
 
                                                 Box::pin(self.service.call(req))
@@ -439,7 +475,7 @@ where
                                             }
                                         }
                                     }
-                                    (Err(e), _) | (_, Err(e)) => {
+                                    (Err(e), _, _) | (_, Err(e), _) | (_, _, Err(e)) => {
                                         let e = AuthError::DecodeError(e.to_string());
                                         debug!("{}", &e);
                                         Box::pin(ready(Ok(req

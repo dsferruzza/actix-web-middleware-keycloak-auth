@@ -6,8 +6,11 @@
 use actix_web::http::StatusCode;
 use actix_web::web::{Bytes, ReqData};
 use actix_web::{test, web, App, HttpResponse, Responder};
-use actix_web_middleware_keycloak_auth::{Access, Claims, KeycloakAuth, Role, UnstructuredClaims};
+use actix_web_middleware_keycloak_auth::{
+    Access, Claims, CustomClaims, KeycloakAuth, Role, UnstructuredClaims,
+};
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
+use serde::Deserialize;
 use serde_json::{json, to_string};
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -501,7 +504,7 @@ async fn from_raw_claims_single_aud_as_string() {
 }
 
 #[actix_rt::test]
-async fn with_custom_claims() {
+async fn with_unstructured_claims() {
     init_logger();
 
     let keycloak_auth = KeycloakAuth {
@@ -555,4 +558,89 @@ async fn with_custom_claims() {
     assert!(resp.status().is_server_error());
     let body = test::read_body(resp).await;
     assert!(String::from_utf8(body.to_vec()).unwrap().contains("other"));
+}
+
+#[actix_rt::test]
+async fn with_custom_claims() {
+    init_logger();
+
+    #[derive(Deserialize)]
+    pub struct MyClaims {
+        custom_field: String,
+    }
+
+    async fn custom_claim(claims: CustomClaims<MyClaims>) -> impl Responder {
+        HttpResponse::Ok().body(claims.into_inner().custom_field)
+    }
+
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+    let app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(custom_claim)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let default = Claims::default();
+    let claims = json!({
+        "custom_field": "test",
+        // Defaults
+        "sub": default.sub,
+        "exp": default.exp.timestamp(),
+        "iss": default.iss,
+        "aud": "some-aud",
+        "iat": default.iat.timestamp(),
+        "jti": default.jti,
+        "azp": default.azp,
+    });
+    let jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+
+    let req = test::TestRequest::with_uri("/private")
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert!(resp.status().is_success());
+    let body = test::read_body(resp).await;
+    assert_eq!(body, Bytes::from("test".to_string()));
+
+    let incorrect_claims = json!({
+        "custom_field": 42,
+        // Defaults
+        "sub": default.sub,
+        "exp": default.exp.timestamp(),
+        "iss": default.iss,
+        "aud": "some-aud",
+        "iat": default.iat.timestamp(),
+        "jti": default.jti,
+        "azp": default.azp,
+    });
+    let incorrect_jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &incorrect_claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+
+    let req = test::TestRequest::with_uri("/private")
+        .insert_header(("Authorization", format!("Bearer {}", &incorrect_jwt)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert!(resp.status().is_client_error());
+    let body = test::read_body(resp).await;
+    assert!(String::from_utf8(body.to_vec())
+        .unwrap()
+        .contains("invalid type"));
 }

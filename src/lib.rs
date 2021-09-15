@@ -202,16 +202,16 @@ use roles::{check_roles, extract_roles, Roles};
 
 /// Middleware configuration
 #[derive(Debug, Clone)]
-pub struct KeycloakAuth {
+pub struct KeycloakAuth<'a> {
     /// If true, error responses will be more detailed to explain what went wrong
     pub detailed_responses: bool,
     /// Public key to use to verify JWT
-    pub keycloak_oid_public_key: DecodingKey<'static>,
+    pub keycloak_oid_public_key: DecodingKey<'a>,
     /// List of Keycloak roles that must be included in JWT
     pub required_roles: Vec<Role>,
 }
 
-impl<S> Transform<S, ServiceRequest> for KeycloakAuth
+impl<'a, S> Transform<S, ServiceRequest> for KeycloakAuth<'a>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
     S::Future: 'static,
@@ -219,7 +219,7 @@ where
     type Response = ServiceResponse<AnyBody>;
     type Error = Error;
     type InitError = ();
-    type Transform = KeycloakAuthMiddleware<S>;
+    type Transform = KeycloakAuthMiddleware<'a, S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
@@ -234,10 +234,10 @@ where
 }
 
 /// Internal middleware configuration
-pub struct KeycloakAuthMiddleware<S> {
+pub struct KeycloakAuthMiddleware<'a, S> {
     service: S,
     detailed_responses: bool,
-    keycloak_oid_public_key: DecodingKey<'static>,
+    keycloak_oid_public_key: DecodingKey<'a>,
     required_roles: Vec<Role>,
 }
 
@@ -395,7 +395,7 @@ impl Roles for RoleClaims {
     }
 }
 
-impl<S> Service<ServiceRequest> for KeycloakAuthMiddleware<S>
+impl<'a, S> Service<ServiceRequest> for KeycloakAuthMiddleware<'a, S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
     S::Future: 'static,

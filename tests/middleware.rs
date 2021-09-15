@@ -7,7 +7,7 @@ use actix_web::http::StatusCode;
 use actix_web::web::{Bytes, ReqData};
 use actix_web::{test, web, App, HttpResponse, Responder};
 use actix_web_middleware_keycloak_auth::{
-    Access, Claims, CustomClaims, KeycloakAuth, Role, UnstructuredClaims,
+    Access, Claims, KeycloakAuth, KeycloakClaims, Role, UnstructuredClaims,
 };
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
 use serde::Deserialize;
@@ -569,7 +569,7 @@ async fn with_custom_claims() {
         custom_field: String,
     }
 
-    async fn custom_claim(claims: CustomClaims<MyClaims>) -> impl Responder {
+    async fn custom_claim(claims: KeycloakClaims<MyClaims>) -> impl Responder {
         HttpResponse::Ok().body(claims.into_inner().custom_field)
     }
 

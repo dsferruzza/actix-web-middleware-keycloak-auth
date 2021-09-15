@@ -150,12 +150,12 @@
 //!
 //! ## Access custom claims in handlers: with Serde
 //!
-//! Another way to extract non-standard JWT claims is to define a struct that implements Serde's [Deserialize](Deserialize) trait, and use the provided [CustomClaims](CustomClaims) extractor.
+//! Another way to extract non-standard JWT claims is to define a struct that implements Serde's [Deserialize](Deserialize) trait, and use the provided [KeycloakClaims](KeycloakClaims) extractor.
 //! Deserialization failure will result in a HTTP 403 error.
 //!
 //! ```
 //! use actix_web::{HttpResponse, Responder};
-//! use actix_web_middleware_keycloak_auth::CustomClaims;
+//! use actix_web_middleware_keycloak_auth::KeycloakClaims;
 //! use serde::Deserialize;
 //!
 //! #[derive(Debug, Deserialize)]
@@ -165,7 +165,7 @@
 //!   can_buy: Vec<String>,
 //! }
 //!
-//! async fn private(claims: CustomClaims<MyClaims>) -> impl Responder {
+//! async fn private(claims: KeycloakClaims<MyClaims>) -> impl Responder {
 //!     HttpResponse::Ok().body(format!("{:?}", &claims))
 //! }
 //! ```
@@ -200,7 +200,7 @@ use uuid::Uuid;
 
 use errors::AuthError;
 pub use errors::ClaimError;
-pub use extractor::CustomClaims;
+pub use extractor::KeycloakClaims;
 use roles::check_roles;
 
 /// Middleware configuration
@@ -400,7 +400,7 @@ impl UnstructuredClaims {
 
 /// All claims that are extracted from JWT in an unstructured way that is easy to deserialize into a custom struct using Serde
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct RawClaims(pub Value);
+struct RawClaims(pub Value);
 
 impl<S> Service<ServiceRequest> for KeycloakAuthMiddleware<S>
 where

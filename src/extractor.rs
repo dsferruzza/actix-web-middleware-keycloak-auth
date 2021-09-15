@@ -8,18 +8,18 @@ use std::ops::Deref;
 use super::RawClaims;
 
 #[derive(Debug, Default)]
-pub struct CustomClaimsExtractorConfig;
+pub struct KeycloakClaimsExtractorConfig;
 
 #[derive(Debug)]
-pub struct CustomClaimsExtractorError(serde_json::Error);
+pub struct KeycloakClaimsExtractorError(serde_json::Error);
 
-impl Display for CustomClaimsExtractorError {
+impl Display for KeycloakClaimsExtractorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Error while deserializing JWT: {}", self.0)
     }
 }
 
-impl ResponseError for CustomClaimsExtractorError {
+impl ResponseError for KeycloakClaimsExtractorError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         actix_web::http::StatusCode::FORBIDDEN
     }
@@ -27,16 +27,16 @@ impl ResponseError for CustomClaimsExtractorError {
 
 /// Extractor for custom JWT claims
 #[derive(Debug, Clone)]
-pub struct CustomClaims<T: DeserializeOwned>(T);
+pub struct KeycloakClaims<T: DeserializeOwned>(T);
 
-impl<T: DeserializeOwned> CustomClaims<T> {
-    /// Consumes the `CustomClaims`, returning its wrapped data
+impl<T: DeserializeOwned> KeycloakClaims<T> {
+    /// Consumes the `KeycloakClaims`, returning its wrapped data
     pub fn into_inner(self) -> T {
         self.0
     }
 }
 
-impl<T: DeserializeOwned> Deref for CustomClaims<T> {
+impl<T: DeserializeOwned> Deref for KeycloakClaims<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -44,9 +44,9 @@ impl<T: DeserializeOwned> Deref for CustomClaims<T> {
     }
 }
 
-impl<T: DeserializeOwned> FromRequest for CustomClaims<T> {
-    type Config = CustomClaimsExtractorConfig;
-    type Error = CustomClaimsExtractorError;
+impl<T: DeserializeOwned> FromRequest for KeycloakClaims<T> {
+    type Config = KeycloakClaimsExtractorConfig;
+    type Error = KeycloakClaimsExtractorError;
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(
@@ -61,7 +61,7 @@ impl<T: DeserializeOwned> FromRequest for CustomClaims<T> {
         ready(
             deserialized_claims
                 .map(Self)
-                .map_err(CustomClaimsExtractorError),
+                .map_err(KeycloakClaimsExtractorError),
         )
     }
 }

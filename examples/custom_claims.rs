@@ -4,7 +4,7 @@
 // License: MIT
 
 use actix_web::{middleware, web, App, HttpResponse, HttpServer, Responder};
-use actix_web_middleware_keycloak_auth::{CustomClaims, DecodingKey, KeycloakAuth};
+use actix_web_middleware_keycloak_auth::{DecodingKey, KeycloakAuth, KeycloakClaims};
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -94,7 +94,7 @@ pub struct ClaimsWithEmail {
 }
 
 // We use this lib's extractor to deserialize the provided JWT into our struct (only if the JWT is valid)
-async fn private(claims: CustomClaims<ClaimsWithEmail>) -> impl Responder {
+async fn private(claims: KeycloakClaims<ClaimsWithEmail>) -> impl Responder {
     HttpResponse::Ok().body(format!("{:?}", &claims))
 }
 

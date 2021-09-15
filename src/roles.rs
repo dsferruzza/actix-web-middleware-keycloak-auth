@@ -3,18 +3,13 @@
 // Copyright: 2020, David Sferruzza
 // License: MIT
 
-use jsonwebtoken::TokenData;
 use log::debug;
+use std::collections::HashMap;
 
-use crate::errors::AuthError;
-use crate::{Claims, Role};
+use super::errors::AuthError;
+use super::{Access, Role};
 
-pub fn check_roles(
-    token: TokenData<Claims>,
-    required_roles: &[Role],
-) -> Result<TokenData<Claims>, AuthError> {
-    let roles = token.claims.roles();
-
+pub fn check_roles(roles: &[Role], required_roles: &[Role]) -> Result<(), AuthError> {
     debug!(
         "JWT contains roles: {}",
         &roles
@@ -32,15 +27,56 @@ pub fn check_roles(
     }
 
     if missing_roles.is_empty() {
-        Ok(token)
+        Ok(())
     } else {
         Err(AuthError::MissingRoles(missing_roles))
     }
 }
 
+pub fn extract_roles(
+    realm_access: &Option<Access>,
+    resource_access: &Option<HashMap<String, Access>>,
+) -> Vec<Role> {
+    let mut roles = realm_access
+        .clone()
+        .map(|ra| {
+            ra.roles
+                .iter()
+                .map(|role| Role::Realm {
+                    role: role.to_owned(),
+                })
+                .collect()
+        })
+        .unwrap_or_else(Vec::new);
+
+    let mut client_roles = resource_access
+        .clone()
+        .map(|ra| {
+            ra.iter()
+                .flat_map(|(client_name, r)| {
+                    r.roles
+                        .iter()
+                        .map(|role| Role::Client {
+                            client: client_name.to_owned(),
+                            role: role.to_owned(),
+                        })
+                        .collect::<Vec<Role>>()
+                })
+                .collect()
+        })
+        .unwrap_or_else(Vec::new);
+
+    roles.append(&mut client_roles);
+    roles
+}
+
+pub trait Roles {
+    /// Extract Keycloak roles
+    fn roles(&self) -> Vec<Role>;
+}
+
 #[cfg(test)]
 mod tests {
-    use jsonwebtoken::{Algorithm, Header};
     use std::collections::HashMap;
     use std::iter::FromIterator;
 
@@ -49,37 +85,28 @@ mod tests {
 
     #[test]
     fn no_required_no_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims::default(),
-        };
+        let roles = &[];
         let required_roles = &[];
 
-        assert!(check_roles(token, required_roles).is_ok());
+        assert!(check_roles(roles, required_roles).is_ok());
     }
 
     #[test]
     fn no_required_some_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                realm_access: Some(Access {
-                    roles: vec!["test1".to_owned(), "test2".to_owned()],
-                }),
-                ..Claims::default()
-            },
-        };
+        let roles = &extract_roles(
+            &Some(Access {
+                roles: vec!["test1".to_owned(), "test2".to_owned()],
+            }),
+            &None,
+        );
         let required_roles = &[];
 
-        assert!(check_roles(token, required_roles).is_ok());
+        assert!(check_roles(roles, required_roles).is_ok());
     }
 
     #[test]
     fn some_required_no_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims::default(),
-        };
+        let roles = &[];
         let required_roles = &[
             Role::Realm {
                 role: "test1".to_owned(),
@@ -89,7 +116,7 @@ mod tests {
             },
         ];
 
-        let result = check_roles(token, required_roles);
+        let result = check_roles(roles, required_roles);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -106,15 +133,12 @@ mod tests {
 
     #[test]
     fn some_required_some_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                realm_access: Some(Access {
-                    roles: vec!["test2".to_owned()],
-                }),
-                ..Claims::default()
-            },
-        };
+        let roles = &extract_roles(
+            &Some(Access {
+                roles: vec!["test2".to_owned()],
+            }),
+            &None,
+        );
         let required_roles = &[
             Role::Realm {
                 role: "test1".to_owned(),
@@ -124,7 +148,7 @@ mod tests {
             },
         ];
 
-        let result = check_roles(token, required_roles);
+        let result = check_roles(roles, required_roles);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -136,15 +160,12 @@ mod tests {
 
     #[test]
     fn some_required_all_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                realm_access: Some(Access {
-                    roles: vec!["test1".to_owned(), "test2".to_owned()],
-                }),
-                ..Claims::default()
-            },
-        };
+        let roles = &extract_roles(
+            &Some(Access {
+                roles: vec!["test1".to_owned(), "test2".to_owned()],
+            }),
+            &None,
+        );
         let required_roles = &[
             Role::Realm {
                 role: "test1".to_owned(),
@@ -154,20 +175,17 @@ mod tests {
             },
         ];
 
-        assert!(check_roles(token, required_roles).is_ok());
+        assert!(check_roles(roles, required_roles).is_ok());
     }
 
     #[test]
     fn some_required_more_provided() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                realm_access: Some(Access {
-                    roles: vec!["test1".to_owned(), "test2".to_owned(), "test3".to_owned()],
-                }),
-                ..Claims::default()
-            },
-        };
+        let roles = &extract_roles(
+            &Some(Access {
+                roles: vec!["test1".to_owned(), "test2".to_owned(), "test3".to_owned()],
+            }),
+            &None,
+        );
         let required_roles = &[
             Role::Realm {
                 role: "test1".to_owned(),
@@ -177,35 +195,31 @@ mod tests {
             },
         ];
 
-        assert!(check_roles(token, required_roles).is_ok());
+        assert!(check_roles(roles, required_roles).is_ok());
     }
 
     #[test]
     fn client_roles() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                realm_access: Some(Access {
-                    roles: vec!["test1".to_owned(), "test2".to_owned()],
-                }),
-                resource_access: Some(HashMap::from_iter(vec![
-                    (
-                        "client1".to_owned(),
-                        Access {
-                            roles: vec!["role1".to_owned(), "role2".to_owned()],
-                        },
-                    ),
-                    (
-                        "client2".to_owned(),
-                        Access {
-                            roles: vec!["role3".to_owned()],
-                        },
-                    ),
-                    ("client3".to_owned(), Access { roles: vec![] }),
-                ])),
-                ..Claims::default()
-            },
-        };
+        let roles = &extract_roles(
+            &Some(Access {
+                roles: vec!["test1".to_owned(), "test2".to_owned()],
+            }),
+            &Some(HashMap::from_iter(vec![
+                (
+                    "client1".to_owned(),
+                    Access {
+                        roles: vec!["role1".to_owned(), "role2".to_owned()],
+                    },
+                ),
+                (
+                    "client2".to_owned(),
+                    Access {
+                        roles: vec!["role3".to_owned()],
+                    },
+                ),
+                ("client3".to_owned(), Access { roles: vec![] }),
+            ])),
+        );
         let required_roles = &[
             Role::Realm {
                 role: "test1".to_owned(),
@@ -227,32 +241,29 @@ mod tests {
             },
         ];
 
-        assert!(check_roles(token, required_roles).is_ok());
+        assert!(check_roles(roles, required_roles).is_ok());
     }
 
     #[test]
     fn both_realm_and_client_roles() {
-        let token = TokenData {
-            header: Header::new(Algorithm::RS256),
-            claims: Claims {
-                resource_access: Some(HashMap::from_iter(vec![
-                    (
-                        "client1".to_owned(),
-                        Access {
-                            roles: vec!["role1".to_owned(), "role2".to_owned()],
-                        },
-                    ),
-                    (
-                        "client2".to_owned(),
-                        Access {
-                            roles: vec!["role3".to_owned()],
-                        },
-                    ),
-                    ("client3".to_owned(), Access { roles: vec![] }),
-                ])),
-                ..Claims::default()
-            },
-        };
+        let roles = &extract_roles(
+            &None,
+            &Some(HashMap::from_iter(vec![
+                (
+                    "client1".to_owned(),
+                    Access {
+                        roles: vec!["role1".to_owned(), "role2".to_owned()],
+                    },
+                ),
+                (
+                    "client2".to_owned(),
+                    Access {
+                        roles: vec!["role3".to_owned()],
+                    },
+                ),
+                ("client3".to_owned(), Access { roles: vec![] }),
+            ])),
+        );
         let required_roles = &[
             Role::Client {
                 client: "client1".to_owned(),
@@ -268,6 +279,6 @@ mod tests {
             },
         ];
 
-        assert!(check_roles(token, required_roles).is_ok());
+        assert!(check_roles(roles, required_roles).is_ok());
     }
 }

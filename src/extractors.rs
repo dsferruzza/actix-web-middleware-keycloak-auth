@@ -5,21 +5,24 @@ use serde_json::Value;
 use std::fmt::Display;
 use std::ops::Deref;
 
+use crate::StandardClaims;
+
 use super::RawClaims;
+use super::UnstructuredClaims;
 
 #[derive(Debug, Default)]
-pub struct KeycloakClaimsExtractorConfig;
+pub struct EmptyConfig;
 
 #[derive(Debug)]
-pub struct KeycloakClaimsExtractorError(serde_json::Error);
+pub struct ExtractorError(serde_json::Error);
 
-impl Display for KeycloakClaimsExtractorError {
+impl Display for ExtractorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Error while deserializing JWT: {}", self.0)
     }
 }
 
-impl ResponseError for KeycloakClaimsExtractorError {
+impl ResponseError for ExtractorError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         actix_web::http::StatusCode::FORBIDDEN
     }
@@ -45,8 +48,8 @@ impl<T: DeserializeOwned> Deref for KeycloakClaims<T> {
 }
 
 impl<T: DeserializeOwned> FromRequest for KeycloakClaims<T> {
-    type Config = KeycloakClaimsExtractorConfig;
-    type Error = KeycloakClaimsExtractorError;
+    type Config = EmptyConfig;
+    type Error = ExtractorError;
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(
@@ -58,10 +61,12 @@ impl<T: DeserializeOwned> FromRequest for KeycloakClaims<T> {
             .get::<RawClaims>()
             .unwrap_or(&RawClaims(Value::Null));
         let deserialized_claims = serde_json::from_value::<T>(raw_claims.0.to_owned());
-        ready(
-            deserialized_claims
-                .map(Self)
-                .map_err(KeycloakClaimsExtractorError),
-        )
+        ready(deserialized_claims.map(Self).map_err(ExtractorError))
     }
 }
+
+/// Actix-web extractor for unstructured JWT claims (see [UnstructuredClaims](UnstructuredClaims))
+pub type UnstructuredKeycloakClaims = KeycloakClaims<UnstructuredClaims>;
+
+/// Actix-web extractor for standard JWT claims (see [StandardClaims](StandardClaims))
+pub type StandardKeycloakClaims = KeycloakClaims<StandardClaims>;

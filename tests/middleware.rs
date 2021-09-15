@@ -4,10 +4,11 @@
 // License: MIT
 
 use actix_web::http::StatusCode;
-use actix_web::web::{Bytes, ReqData};
+use actix_web::web::Bytes;
 use actix_web::{test, web, App, HttpResponse, Responder};
 use actix_web_middleware_keycloak_auth::{
-    Access, Claims, KeycloakAuth, KeycloakClaims, Role, UnstructuredClaims,
+    Access, KeycloakAuth, KeycloakClaims, Role, StandardClaims, StandardKeycloakClaims,
+    UnstructuredKeycloakClaims,
 };
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
 use serde::Deserialize;
@@ -87,11 +88,11 @@ async fn hello_world() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
 }
 
-async fn private(claims: ReqData<Claims>) -> impl Responder {
+async fn private(claims: StandardKeycloakClaims) -> impl Responder {
     HttpResponse::Ok().body(&claims.sub.to_string())
 }
 
-async fn other_claim(unstructured_claims: ReqData<UnstructuredClaims>) -> impl Responder {
+async fn other_claim(unstructured_claims: UnstructuredKeycloakClaims) -> impl Responder {
     let res = match unstructured_claims.get::<Vec<String>>("other") {
         Ok(val) => to_string(&val).unwrap(),
         Err(err) => err.to_string(),
@@ -99,7 +100,7 @@ async fn other_claim(unstructured_claims: ReqData<UnstructuredClaims>) -> impl R
     HttpResponse::Ok().body(res)
 }
 
-async fn other_claim_failed(unstructured_claims: ReqData<UnstructuredClaims>) -> impl Responder {
+async fn other_claim_failed(unstructured_claims: UnstructuredKeycloakClaims) -> impl Responder {
     let res = match unstructured_claims.get::<Vec<u8>>("other") {
         Ok(val) => to_string(&val).unwrap(),
         Err(err) => err.to_string(),
@@ -274,7 +275,7 @@ async fn invalid_jwt_signature() {
     )
     .await;
 
-    let claims = Claims::default();
+    let claims = StandardClaims::default();
     let jwt = encode(
         &Header::new(Algorithm::RS256),
         &claims,
@@ -312,9 +313,9 @@ async fn valid_jwt() {
     .await;
 
     let user_id = Uuid::new_v4();
-    let claims = Claims {
+    let claims = StandardClaims {
         sub: user_id.to_owned(),
-        ..Claims::default()
+        ..StandardClaims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -360,12 +361,12 @@ async fn missing_jwt_roles() {
     .await;
 
     let user_id = Uuid::new_v4();
-    let claims = Claims {
+    let claims = StandardClaims {
         sub: user_id.to_owned(),
         realm_access: Some(Access {
             roles: vec!["test2".to_owned()],
         }),
-        ..Claims::default()
+        ..StandardClaims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -415,7 +416,7 @@ async fn valid_jwt_roles() {
     .await;
 
     let user_id = Uuid::new_v4();
-    let claims = Claims {
+    let claims = StandardClaims {
         sub: user_id.to_owned(),
         realm_access: Some(Access {
             roles: vec!["test2".to_owned(), "test1".to_owned()],
@@ -426,7 +427,7 @@ async fn valid_jwt_roles() {
                 roles: vec!["test3".to_owned()],
             },
         )])),
-        ..Claims::default()
+        ..StandardClaims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -468,7 +469,7 @@ async fn from_raw_claims_single_aud_as_string() {
     .await;
 
     let user_id = Uuid::new_v4();
-    let default = Claims::default();
+    let default = StandardClaims::default();
     let claims = json!({
         "sub": user_id,
         "resource_access": {
@@ -524,7 +525,7 @@ async fn with_unstructured_claims() {
     )
     .await;
 
-    let default = Claims::default();
+    let default = StandardClaims::default();
     let claims = json!({
         "other": vec!["some", "values"],
         // Defaults
@@ -589,7 +590,7 @@ async fn with_custom_claims() {
     )
     .await;
 
-    let default = Claims::default();
+    let default = StandardClaims::default();
     let claims = json!({
         "custom_field": "test",
         // Defaults

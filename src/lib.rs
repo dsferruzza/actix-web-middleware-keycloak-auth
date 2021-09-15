@@ -58,6 +58,20 @@
 //! };
 //! ```
 //!
+//! There is also a [KeycloakRoles](KeycloakRoles) extractor that can be used to get the list of roles extracted from the JWT.
+//! This can be useful if a handler must have a different behavior depending of whether a role is present or not (i.e. a role is not stricly necessary but you want to check if it is there anyway, without having to reparse the JWT).
+//! Doing this will give your handler a [Vec](Vec) of [Role](Role).
+//!
+//! ```
+//! use actix_web::{HttpResponse, Responder};
+//! use actix_web_middleware_keycloak_auth::{KeycloakRoles, Role};
+//!
+//! async fn private(roles: KeycloakRoles) -> impl Responder {
+//!     let roles: &Vec<Role> = &roles;
+//!     HttpResponse::Ok().body(format!("{:?}", roles))
+//! }
+//! ```
+//!
 //! ## Use several authentication profiles
 //!
 //! It is possible to setup multiple authentication profiles if, for example, multiple groups of routes require different roles.
@@ -197,7 +211,9 @@ use uuid::Uuid;
 
 use errors::AuthError;
 pub use errors::ClaimError;
-pub use extractors::{KeycloakClaims, StandardKeycloakClaims, UnstructuredKeycloakClaims};
+pub use extractors::{
+    KeycloakClaims, KeycloakRoles, StandardKeycloakClaims, UnstructuredKeycloakClaims,
+};
 use roles::{check_roles, extract_roles, Roles};
 
 /// Middleware configuration
@@ -320,7 +336,8 @@ pub struct Access {
 }
 
 /// A realm or client role
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(tag = "type")]
 pub enum Role {
     /// A realm role
     Realm {
@@ -435,10 +452,9 @@ where
 
                                         match from_value::<RoleClaims>(raw_token.claims.clone()) {
                                             Ok(role_claims) => {
-                                                match check_roles(
-                                                    &role_claims.roles(),
-                                                    &self.required_roles,
-                                                ) {
+                                                let roles = role_claims.roles();
+
+                                                match check_roles(&roles, &self.required_roles) {
                                                     Ok(_) => {
                                                         debug!("JWT is valid");
 
@@ -448,6 +464,7 @@ where
                                                             extensions.insert(RawClaims(
                                                                 raw_token.claims,
                                                             ));
+                                                            extensions.insert(roles);
                                                         }
 
                                                         Box::pin(self.service.call(req))

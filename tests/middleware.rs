@@ -7,12 +7,12 @@ use actix_web::http::StatusCode;
 use actix_web::web::Bytes;
 use actix_web::{test, web, App, HttpResponse, Responder};
 use actix_web_middleware_keycloak_auth::{
-    Access, KeycloakAuth, KeycloakClaims, Role, StandardClaims, StandardKeycloakClaims,
-    UnstructuredKeycloakClaims,
+    Access, KeycloakAuth, KeycloakClaims, KeycloakRoles, Role, StandardClaims,
+    StandardKeycloakClaims, UnstructuredKeycloakClaims,
 };
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
 use serde::Deserialize;
-use serde_json::{json, to_string};
+use serde_json::{from_slice, json, to_string, to_value, Value};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use uuid::Uuid;
@@ -90,6 +90,10 @@ async fn hello_world() -> impl Responder {
 
 async fn private(claims: StandardKeycloakClaims) -> impl Responder {
     HttpResponse::Ok().body(&claims.sub.to_string())
+}
+
+async fn roles(roles: KeycloakRoles) -> impl Responder {
+    HttpResponse::Ok().json(roles.into_inner())
 }
 
 async fn other_claim(unstructured_claims: UnstructuredKeycloakClaims) -> impl Responder {
@@ -443,6 +447,70 @@ async fn valid_jwt_roles() {
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
     assert_eq!(body, Bytes::from(user_id.to_string()));
+}
+
+#[actix_rt::test]
+async fn roles_extractor() {
+    init_logger();
+
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+    let app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(roles)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let user_id = Uuid::new_v4();
+    let claims = StandardClaims {
+        sub: user_id.to_owned(),
+        realm_access: Some(Access {
+            roles: vec!["test1".to_owned(), "test2".to_owned()],
+        }),
+        resource_access: Some(HashMap::from_iter(vec![(
+            "client".to_owned(),
+            Access {
+                roles: vec!["test3".to_owned()],
+            },
+        )])),
+        ..StandardClaims::default()
+    };
+    let jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+    let req = test::TestRequest::with_uri("/private")
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert!(resp.status().is_success());
+    let body = test::read_body(resp).await;
+    let roles = from_slice::<Value>(body.as_ref()).unwrap();
+    let expected_roles = to_value(vec![
+        Role::Realm {
+            role: "test1".to_owned(),
+        },
+        Role::Realm {
+            role: "test2".to_owned(),
+        },
+        Role::Client {
+            client: "client".to_owned(),
+            role: "test3".to_owned(),
+        },
+    ])
+    .unwrap();
+    assert_eq!(roles, expected_roles);
 }
 
 #[actix_rt::test]

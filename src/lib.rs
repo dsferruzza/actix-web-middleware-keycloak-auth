@@ -244,7 +244,7 @@ pub struct KeycloakAuthMiddleware<S> {
     required_roles: Vec<Role>,
 }
 
-/// Claims that are extracted from JWT and can be accessed in handlers using a `ReqData<Claims>` parameter
+/// Standard claims that are extracted from JWT and can be accessed in handlers using a `ReqData<Claims>` parameter
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Claims {
     /// Subject (usually, the user ID)

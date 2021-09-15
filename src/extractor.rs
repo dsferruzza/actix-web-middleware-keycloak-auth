@@ -25,7 +25,7 @@ impl ResponseError for KeycloakClaimsExtractorError {
     }
 }
 
-/// Extractor for custom JWT claims
+/// Actix-web extractor for custom JWT claims
 #[derive(Debug, Clone)]
 pub struct KeycloakClaims<T: DeserializeOwned>(T);
 

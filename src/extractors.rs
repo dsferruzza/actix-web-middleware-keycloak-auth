@@ -1,3 +1,8 @@
+// actix-web-middleware-keycloak-auth
+//
+// Copyright: 2020, David Sferruzza
+// License: MIT
+
 use actix_web::{FromRequest, ResponseError};
 use futures_util::future::{ready, Ready};
 use serde::de::DeserializeOwned;

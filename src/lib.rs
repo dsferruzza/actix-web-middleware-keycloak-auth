@@ -115,7 +115,7 @@
 //!
 //! When authentication is successful, the middleware will store the decoded JWT claims so that they can be accessed from handlers.
 //!
-//! We provide the [KeycloakClaims](KeycloakClaims) as an Actix Web extractor, which means you can use it as an handler's parameter to obtain claims.
+//! We provide the [KeycloakClaims](KeycloakClaims) as an Actix Web extractor, which means you can use it as a handler's parameter to obtain claims.
 //! This extractor requires a type parameter: it is the struct you want claims to be deserialized into.
 //! This struct must implement Serde's [Deserialize](Deserialize) trait.
 //!

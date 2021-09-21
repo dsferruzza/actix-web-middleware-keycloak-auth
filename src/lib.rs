@@ -189,6 +189,9 @@ mod errors;
 mod extractors;
 mod roles;
 
+#[cfg(feature = "paperclip_compat")]
+mod paperclip;
+
 /// _(Re-exported from the `jsonwebtoken` crate)_
 pub use jsonwebtoken::DecodingKey;
 

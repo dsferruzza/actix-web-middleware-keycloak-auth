@@ -16,6 +16,7 @@ A middleware for [Actix Web](https://actix.rs/) that handles authentication with
 - error HTTP responses sent from the middleware can have generic bodies as well as detailed error reasons
 - access JWT claims from handlers (for example: get the ID of the authenticated user)
 - access parsed roles from handlers (every Keycloak role contained in the JWT)
+- compatible with [paperclip](https://crates.io/crates/paperclip) using the `paperclip_compat` feature
 
 ## Usage
 

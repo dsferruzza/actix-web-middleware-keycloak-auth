@@ -204,6 +204,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{from_value, Value};
 use std::collections::HashMap;
 use std::future::Future;
+use std::iter::FromIterator;
 use std::ops::Deref;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -376,6 +377,11 @@ impl Deref for UnstructuredClaims {
 }
 
 impl UnstructuredClaims {
+    /// Creates a new `UnstructuredClaims` using claims in tuples
+    pub fn from_tuples<T: IntoIterator<Item = (String, Value)>>(claims: T) -> Self {
+        Self(HashMap::from_iter(claims))
+    }
+
     /// Consumes the `UnstructuredClaims`, returning its wrapped HashMap
     pub fn into_inner(self) -> HashMap<String, Value> {
         self.0

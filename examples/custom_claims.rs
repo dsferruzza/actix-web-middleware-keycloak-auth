@@ -4,7 +4,11 @@
 // License: MIT
 
 use actix_web::{middleware, web, App, HttpResponse, HttpServer, Responder};
-use actix_web_middleware_keycloak_auth::{DecodingKey, KeycloakAuth, Role, StandardKeycloakClaims};
+use actix_web_middleware_keycloak_auth::{DecodingKey, KeycloakAuth, KeycloakClaims};
+use chrono::serde::ts_seconds;
+use chrono::{DateTime, Utc};
+use serde::Deserialize;
+use uuid::Uuid;
 
 const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv
@@ -56,9 +60,7 @@ async fn main() -> std::io::Result<()> {
         let keycloak_auth = KeycloakAuth {
             detailed_responses: true,
             keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-            required_roles: vec![Role::Realm {
-                role: "test".to_owned(),
-            }],
+            required_roles: vec![],
         };
 
         App::new()
@@ -80,6 +82,30 @@ async fn hello_world() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
 }
 
-async fn private(claims: StandardKeycloakClaims) -> impl Responder {
+// Let's define a struct with only the claims we need (even if they are not standard)
+#[derive(Debug, Deserialize)]
+pub struct ClaimsWithEmail {
+    // Standard claims, we choose the way they should be deserialized
+    sub: Uuid,
+    #[serde(with = "ts_seconds")]
+    exp: DateTime<Utc>,
+    // Custom claims
+    company_id: u32,
+}
+
+// We use this lib's extractor to deserialize the provided JWT into our struct (only if the JWT is valid)
+async fn private(claims: KeycloakClaims<ClaimsWithEmail>) -> impl Responder {
     HttpResponse::Ok().body(format!("{:?}", &claims))
 }
+
+/*
+Valid JWT:
+
+eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjI1MTYyMzkwMjIsImlzcyI6ImFjdGl4LXdlYi1taWRkbGV3YXJlLWtleWNsb2FrLWF1dGgiLCJqdGkiOiI3MjY3NThlYy01ZTRhLTQyNTAtODVlNC05ZjczMGUxZThkODQiLCJhenAiOiIiLCJzdWIiOiIxNDVlNmM4Mi1jMzZlLTQ5ZTItYmQ2My1jMDFmMTgzNTJhMGQiLCJjb21wYW55X2lkIjo0Mn0.Vu2UqLEcZEV3Hw56gCBLCdNl2L6FGSX-aUefo2GiqTJD2zfOHC6baFHs1fEcQMytS81-N4jBFDkGe8CX4lvBZDvofkabyVsnskNaeYzMv_WTiU0LjkTQwxFDkhd-7ImM_L-rsCrpUv9F3tosE7bGToDiJQlY_A4nkSGf1htXxAqH1hMtOyJNTDR6pcDUl7eM3AyddafDQu5A5CrWY1ElRSRQWdCzvXFV6-mUPNsi23wfWOq7Qhlo1oZSye3hyic69k8RJwafKJ6V-GKAUXKHfT57Qs1LH28QTZFbvIh00uEBKOCXuDIWBOU9Fqw1CXY2xwwf_v60PrU3ql0PCdfpsA
+*/
+
+/*
+Invalid JWT (missing company_id):
+
+eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjI1MTYyMzkwMjIsImlzcyI6ImFjdGl4LXdlYi1taWRkbGV3YXJlLWtleWNsb2FrLWF1dGgiLCJqdGkiOiI3MjY3NThlYy01ZTRhLTQyNTAtODVlNC05ZjczMGUxZThkODQiLCJhenAiOiIiLCJzdWIiOiIxNDVlNmM4Mi1jMzZlLTQ5ZTItYmQ2My1jMDFmMTgzNTJhMGQifQ.A7OKRY_zjWJBFBWkoq-Efzc07_pQDrblE2Q_vtgrPNojoNMvxvyggX5oyhCgxgG6iy9bFN_OcoZ-7G8VqTE7nQR0Yhaui1zsAS7tUbx4H3go_WlQEvkjC07C8UxH5TDJkt13GDV0t01B1D3Q7YxOj2PQpnpqzA_x1Fj1ghT4p8q0odTg0YIh6pR_Fhf6ZLsTNwqfbvaO6231YamuQnHe-HHDLEzdFJfrISR7Q7LH0nTy_c9eypcjcse4702hWsEc_-O8nOPGvkfNZ-Hk0TZqf_64rZwweaHel8MGQOFBaLUKO75Avb_nook2op8PIoO7Tf1fL9tyG_DExhOe-E1hww
+*/

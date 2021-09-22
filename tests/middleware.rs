@@ -4,11 +4,15 @@
 // License: MIT
 
 use actix_web::http::StatusCode;
-use actix_web::web::{Bytes, ReqData};
+use actix_web::web::Bytes;
 use actix_web::{test, web, App, HttpResponse, Responder};
-use actix_web_middleware_keycloak_auth::{Access, Claims, KeycloakAuth, Role, UnstructuredClaims};
+use actix_web_middleware_keycloak_auth::{
+    Access, KeycloakAuth, KeycloakClaims, KeycloakRoles, Role, StandardClaims,
+    StandardKeycloakClaims, UnstructuredKeycloakClaims,
+};
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
-use serde_json::{json, to_string};
+use serde::Deserialize;
+use serde_json::{from_slice, json, to_string, to_value, Value};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use uuid::Uuid;
@@ -84,11 +88,15 @@ async fn hello_world() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
 }
 
-async fn private(claims: ReqData<Claims>) -> impl Responder {
+async fn private(claims: StandardKeycloakClaims) -> impl Responder {
     HttpResponse::Ok().body(&claims.sub.to_string())
 }
 
-async fn other_claim(unstructured_claims: ReqData<UnstructuredClaims>) -> impl Responder {
+async fn roles(roles: KeycloakRoles) -> impl Responder {
+    HttpResponse::Ok().json(roles.into_inner())
+}
+
+async fn other_claim(unstructured_claims: UnstructuredKeycloakClaims) -> impl Responder {
     let res = match unstructured_claims.get::<Vec<String>>("other") {
         Ok(val) => to_string(&val).unwrap(),
         Err(err) => err.to_string(),
@@ -96,7 +104,7 @@ async fn other_claim(unstructured_claims: ReqData<UnstructuredClaims>) -> impl R
     HttpResponse::Ok().body(res)
 }
 
-async fn other_claim_failed(unstructured_claims: ReqData<UnstructuredClaims>) -> impl Responder {
+async fn other_claim_failed(unstructured_claims: UnstructuredKeycloakClaims) -> impl Responder {
     let res = match unstructured_claims.get::<Vec<u8>>("other") {
         Ok(val) => to_string(&val).unwrap(),
         Err(err) => err.to_string(),
@@ -118,7 +126,7 @@ async fn unprotected_route() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -130,7 +138,7 @@ async fn unprotected_route() {
     .await;
 
     let req = test::TestRequest::with_uri("/").to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
 }
@@ -144,7 +152,7 @@ async fn no_bearer_token() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -156,7 +164,7 @@ async fn no_bearer_token() {
     .await;
 
     let req = test::TestRequest::with_uri("/private").to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -172,7 +180,7 @@ async fn no_bearer_token_no_debug() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -184,7 +192,7 @@ async fn no_bearer_token_no_debug() {
     .await;
 
     let req = test::TestRequest::with_uri("/private").to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -200,7 +208,7 @@ async fn no_bearer_in_authorization_header() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -212,9 +220,9 @@ async fn no_bearer_in_authorization_header() {
     .await;
 
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", "test")
+        .insert_header(("Authorization", "test"))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -230,7 +238,7 @@ async fn invalid_jwt() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -242,9 +250,9 @@ async fn invalid_jwt() {
     .await;
 
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", "Bearer test")
+        .insert_header(("Authorization", "Bearer test"))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -260,7 +268,7 @@ async fn invalid_jwt_signature() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -271,7 +279,7 @@ async fn invalid_jwt_signature() {
     )
     .await;
 
-    let claims = Claims::default();
+    let claims = StandardClaims::default();
     let jwt = encode(
         &Header::new(Algorithm::RS256),
         &claims,
@@ -279,9 +287,9 @@ async fn invalid_jwt_signature() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     let body = test::read_body(resp).await;
@@ -297,7 +305,7 @@ async fn valid_jwt() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -309,9 +317,9 @@ async fn valid_jwt() {
     .await;
 
     let user_id = Uuid::new_v4();
-    let claims = Claims {
+    let claims = StandardClaims {
         sub: user_id.to_owned(),
-        ..Claims::default()
+        ..StandardClaims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -320,9 +328,9 @@ async fn valid_jwt() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
@@ -345,7 +353,7 @@ async fn missing_jwt_roles() {
             },
         ],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -357,12 +365,12 @@ async fn missing_jwt_roles() {
     .await;
 
     let user_id = Uuid::new_v4();
-    let claims = Claims {
+    let claims = StandardClaims {
         sub: user_id.to_owned(),
         realm_access: Some(Access {
             roles: vec!["test2".to_owned()],
         }),
-        ..Claims::default()
+        ..StandardClaims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -371,9 +379,9 @@ async fn missing_jwt_roles() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let body = test::read_body(resp).await;
@@ -400,7 +408,7 @@ async fn valid_jwt_roles() {
             },
         ],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -412,7 +420,7 @@ async fn valid_jwt_roles() {
     .await;
 
     let user_id = Uuid::new_v4();
-    let claims = Claims {
+    let claims = StandardClaims {
         sub: user_id.to_owned(),
         realm_access: Some(Access {
             roles: vec!["test2".to_owned(), "test1".to_owned()],
@@ -423,7 +431,7 @@ async fn valid_jwt_roles() {
                 roles: vec!["test3".to_owned()],
             },
         )])),
-        ..Claims::default()
+        ..StandardClaims::default()
     };
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -432,13 +440,77 @@ async fn valid_jwt_roles() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
     assert_eq!(body, Bytes::from(user_id.to_string()));
+}
+
+#[actix_rt::test]
+async fn roles_extractor() {
+    init_logger();
+
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+    let app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(roles)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let user_id = Uuid::new_v4();
+    let claims = StandardClaims {
+        sub: user_id.to_owned(),
+        realm_access: Some(Access {
+            roles: vec!["test1".to_owned(), "test2".to_owned()],
+        }),
+        resource_access: Some(HashMap::from_iter(vec![(
+            "client".to_owned(),
+            Access {
+                roles: vec!["test3".to_owned()],
+            },
+        )])),
+        ..StandardClaims::default()
+    };
+    let jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+    let req = test::TestRequest::with_uri("/private")
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert!(resp.status().is_success());
+    let body = test::read_body(resp).await;
+    let roles = from_slice::<Value>(body.as_ref()).unwrap();
+    let expected_roles = to_value(vec![
+        Role::Realm {
+            role: "test1".to_owned(),
+        },
+        Role::Realm {
+            role: "test2".to_owned(),
+        },
+        Role::Client {
+            client: "client".to_owned(),
+            role: "test3".to_owned(),
+        },
+    ])
+    .unwrap();
+    assert_eq!(roles, expected_roles);
 }
 
 #[actix_rt::test]
@@ -453,7 +525,7 @@ async fn from_raw_claims_single_aud_as_string() {
             role: "test1".to_owned(),
         }],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -465,7 +537,7 @@ async fn from_raw_claims_single_aud_as_string() {
     .await;
 
     let user_id = Uuid::new_v4();
-    let default = Claims::default();
+    let default = StandardClaims::default();
     let claims = json!({
         "sub": user_id,
         "resource_access": {
@@ -491,9 +563,9 @@ async fn from_raw_claims_single_aud_as_string() {
     )
     .unwrap();
     let req = test::TestRequest::with_uri("/private")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
@@ -501,7 +573,7 @@ async fn from_raw_claims_single_aud_as_string() {
 }
 
 #[actix_rt::test]
-async fn with_custom_claims() {
+async fn with_unstructured_claims() {
     init_logger();
 
     let keycloak_auth = KeycloakAuth {
@@ -509,7 +581,7 @@ async fn with_custom_claims() {
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
-    let mut app = test::init_service(
+    let app = test::init_service(
         App::new()
             .service(
                 web::scope("/private")
@@ -521,7 +593,7 @@ async fn with_custom_claims() {
     )
     .await;
 
-    let default = Claims::default();
+    let default = StandardClaims::default();
     let claims = json!({
         "other": vec!["some", "values"],
         // Defaults
@@ -541,18 +613,103 @@ async fn with_custom_claims() {
     .unwrap();
 
     let req = test::TestRequest::with_uri("/private/ok")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
     assert!(resp.status().is_success());
     let body = test::read_body(resp).await;
     assert_eq!(body, Bytes::from("[\"some\",\"values\"]".to_string()));
 
     let req = test::TestRequest::with_uri("/private/failed")
-        .header("Authorization", format!("Bearer {}", &jwt))
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
         .to_request();
-    let resp = test::call_service(&mut app, req).await;
+    let resp = test::call_service(&app, req).await;
     assert!(resp.status().is_server_error());
     let body = test::read_body(resp).await;
     assert!(String::from_utf8(body.to_vec()).unwrap().contains("other"));
+}
+
+#[actix_rt::test]
+async fn with_custom_claims() {
+    init_logger();
+
+    #[derive(Deserialize)]
+    pub struct MyClaims {
+        custom_field: String,
+    }
+
+    async fn custom_claim(claims: KeycloakClaims<MyClaims>) -> impl Responder {
+        HttpResponse::Ok().body(claims.into_inner().custom_field)
+    }
+
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+    let app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(custom_claim)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let default = StandardClaims::default();
+    let claims = json!({
+        "custom_field": "test",
+        // Defaults
+        "sub": default.sub,
+        "exp": default.exp.timestamp(),
+        "iss": default.iss,
+        "aud": "some-aud",
+        "iat": default.iat.timestamp(),
+        "jti": default.jti,
+        "azp": default.azp,
+    });
+    let jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+
+    let req = test::TestRequest::with_uri("/private")
+        .insert_header(("Authorization", format!("Bearer {}", &jwt)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert!(resp.status().is_success());
+    let body = test::read_body(resp).await;
+    assert_eq!(body, Bytes::from("test".to_string()));
+
+    let incorrect_claims = json!({
+        "custom_field": 42,
+        // Defaults
+        "sub": default.sub,
+        "exp": default.exp.timestamp(),
+        "iss": default.iss,
+        "aud": "some-aud",
+        "iat": default.iat.timestamp(),
+        "jti": default.jti,
+        "azp": default.azp,
+    });
+    let incorrect_jwt = encode(
+        &Header::new(Algorithm::RS256),
+        &incorrect_claims,
+        &EncodingKey::from_rsa_pem(KEYCLOAK_KEY.as_bytes()).unwrap(),
+    )
+    .unwrap();
+
+    let req = test::TestRequest::with_uri("/private")
+        .insert_header(("Authorization", format!("Bearer {}", &incorrect_jwt)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert!(resp.status().is_client_error());
+    let body = test::read_body(resp).await;
+    assert!(String::from_utf8(body.to_vec())
+        .unwrap()
+        .contains("invalid type"));
 }

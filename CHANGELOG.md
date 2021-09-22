@@ -3,6 +3,7 @@
 ## unreleased
 
 - handle extraction and parsing of custom JWT claims
+- add compatibility with the paperclip crate (under the `paperclip_compat` feature)
 
 ## v0.3.0
 

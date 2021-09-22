@@ -3,8 +3,12 @@
 // Copyright: 2020, David Sferruzza
 // License: MIT
 
-use actix_web::{middleware, web, App, HttpResponse, HttpServer, Responder};
+// This example needs to be run with the paperclip_compat feature
+// For example: cargo run --example paperclip --features paperclip_compat
+
+use actix_web::{middleware, App, HttpServer};
 use actix_web_middleware_keycloak_auth::{DecodingKey, KeycloakAuth, Role, StandardKeycloakClaims};
+use paperclip::actix::{api_v2_operation, web, OpenApiExt};
 
 const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv
@@ -63,12 +67,15 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .wrap(middleware::Logger::default())
+            .wrap_api()
             .service(
                 web::scope("/private")
                     .wrap(keycloak_auth)
                     .route("", web::get().to(private)),
             )
             .service(web::resource("/").to(hello_world))
+            .with_json_spec_at("/api/spec")
+            .build()
     })
     .bind("127.0.0.1:8080")?
     .workers(1)
@@ -76,10 +83,12 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-async fn hello_world() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
+#[api_v2_operation]
+async fn hello_world() -> Result<String, actix_web::Error> {
+    Ok("Hello world!".to_owned())
 }
 
-async fn private(claims: StandardKeycloakClaims) -> impl Responder {
-    HttpResponse::Ok().body(format!("{:?}", &claims))
+#[api_v2_operation]
+async fn private(claims: StandardKeycloakClaims) -> Result<String, actix_web::Error> {
+    Ok(format!("{:?}", &claims))
 }

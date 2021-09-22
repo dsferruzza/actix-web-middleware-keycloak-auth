@@ -6,7 +6,7 @@
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError};
 
-use crate::Role;
+use super::Role;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthError {
@@ -14,6 +14,7 @@ pub enum AuthError {
     InvalidAuthorizationHeader,
     InvalidJwt(String),
     DecodeError(String),
+    RoleParsingError(String),
     MissingRoles(Vec<Role>),
 }
 
@@ -27,7 +28,7 @@ impl ResponseError for AuthError {
     }
 
     fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code()).body(&self.to_string())
+        HttpResponse::new(self.status_code()).set_body(self.to_string().into())
     }
 }
 
@@ -40,6 +41,11 @@ impl std::fmt::Display for AuthError {
             }
             Self::InvalidJwt(e) => write!(f, "Invalid JWT token ({})", e),
             Self::DecodeError(e) => write!(f, "Error while decoding JWT token ({})", e),
+            Self::RoleParsingError(e) => write!(
+                f,
+                "Error while parsing Keycloak roles from JWT token ({})",
+                e
+            ),
             Self::MissingRoles(roles) => {
                 write!(
                     f,

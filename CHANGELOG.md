@@ -1,6 +1,6 @@
 # Changelog
 
-## unreleased
+## v0.4.0-beta.1
 
 - handle extraction and parsing of custom JWT claims
 - add a way to access parsed roles from handlers (every Keycloak role contained in the JWT)

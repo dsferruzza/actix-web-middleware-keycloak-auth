@@ -14,17 +14,13 @@
 //!
 //! ```
 //! use actix_web::{App, web, HttpResponse};
-//! use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey};
+//! use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey, AlwaysReturnPolicy};
 //!
 //! # const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv\nvkTtwlvBsaJq7S5wA+kzeVOVpVWwkWdVha4s38XM/pa/yr47av7+z3VTmvDRyAHc\naT92whREFpLv9cj5lTeJSibyr/Mrm/YtjCZVWgaOYIhwrXwKLqPr/11inWsAkfIy\ntvHWTxZYEcXLgAXFuUuaS3uF9gEiNQwzGTU1v0FqkqTBr4B8nW3HCN47XUu0t8Y0\ne+lf4s4OxQawWD79J9/5d3Ry0vbV3Am1FtGJiJvOwRsIfVChDpYStTcHTCMqtvWb\nV6L11BWkpzGXSW4Hv43qa+GSYOD2QU68Mb59oSk2OB+BtOLpJofmbGEGgvmwyCI9\nMwIDAQAB\n-----END PUBLIC KEY-----";
 //! // const KEYCLOAK_PK: &str = "..."; // You should get this from configuration
 //!
 //! // Initialize middleware configuration
-//! let keycloak_auth = KeycloakAuth {
-//!     detailed_responses: true,
-//!     keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-//!     required_roles: vec![],
-//! };
+//! let keycloak_auth = KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
 //!
 //! App::new()
 //!     .service(
@@ -43,10 +39,11 @@
 //! If they are not provided, the middleware will return a 403 error.
 //!
 //! ```
-//! # use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey, Role};
+//! # use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey, Role, AlwaysReturnPolicy};
 //! # const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv\nvkTtwlvBsaJq7S5wA+kzeVOVpVWwkWdVha4s38XM/pa/yr47av7+z3VTmvDRyAHc\naT92whREFpLv9cj5lTeJSibyr/Mrm/YtjCZVWgaOYIhwrXwKLqPr/11inWsAkfIy\ntvHWTxZYEcXLgAXFuUuaS3uF9gEiNQwzGTU1v0FqkqTBr4B8nW3HCN47XUu0t8Y0\ne+lf4s4OxQawWD79J9/5d3Ry0vbV3Am1FtGJiJvOwRsIfVChDpYStTcHTCMqtvWb\nV6L11BWkpzGXSW4Hv43qa+GSYOD2QU68Mb59oSk2OB+BtOLpJofmbGEGgvmwyCI9\nMwIDAQAB\n-----END PUBLIC KEY-----";
 //! let keycloak_auth = KeycloakAuth {
 //!     detailed_responses: true,
+//!     passthrough_policy: AlwaysReturnPolicy,
 //!     keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
 //!     required_roles: vec![
 //!         Role::Realm { role: "admin".to_owned() }, // The "admin" realm role must be provided in the JWT
@@ -78,21 +75,18 @@
 //!
 //! ```
 //! use actix_web::{App, web, HttpResponse};
-//! use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey, Role};
+//! use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey, Role, AlwaysReturnPolicy};
 //!
 //! # const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv\nvkTtwlvBsaJq7S5wA+kzeVOVpVWwkWdVha4s38XM/pa/yr47av7+z3VTmvDRyAHc\naT92whREFpLv9cj5lTeJSibyr/Mrm/YtjCZVWgaOYIhwrXwKLqPr/11inWsAkfIy\ntvHWTxZYEcXLgAXFuUuaS3uF9gEiNQwzGTU1v0FqkqTBr4B8nW3HCN47XUu0t8Y0\ne+lf4s4OxQawWD79J9/5d3Ry0vbV3Am1FtGJiJvOwRsIfVChDpYStTcHTCMqtvWb\nV6L11BWkpzGXSW4Hv43qa+GSYOD2QU68Mb59oSk2OB+BtOLpJofmbGEGgvmwyCI9\nMwIDAQAB\n-----END PUBLIC KEY-----";
 //! // const KEYCLOAK_PK: &str = "..."; // You should get this from configuration
 //!
 //! // No role required
-//! let keycloak_auth = KeycloakAuth {
-//!     detailed_responses: true,
-//!     keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-//!     required_roles: vec![],
-//! };
+//! let keycloak_auth = KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
 //!
 //! // Admin realm role is required
 //! let keycloak_auth_admin = KeycloakAuth {
 //!     detailed_responses: true,
+//!     passthrough_policy: AlwaysReturnPolicy,
 //!     keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
 //!     required_roles: vec![Role::Realm { role: "admin".to_owned() }],
 //! };
@@ -181,6 +175,34 @@
 //!     HttpResponse::Ok().body(format!("{:?}", &some_claim))
 //! }
 //! ```
+//!
+//! ## Make authentication optional
+//!
+//! By default, when the middleware cannot authenticate a request, it immediately responds with a HTTP error (401 or 403 depending on what failed).
+//! This behavior can be overriden by defining a [passthrough policy](PassthroughPolicy) when creating the middleware.
+//!
+//! We provide two policies:
+//! - [AlwaysReturnPolicy](AlwaysReturnPolicy): always respond with an HTTP error (the default in most cases)
+//! - [AlwaysPassPolicy](AlwaysPassPolicy): always continue (⚠ you will need to handle security by yourself)
+//!
+//! It is also quite easy to build a custom policy by implementing the [PassthroughPolicy](PassthroughPolicy) trait, which allows to choose different actions (pass or return) depending on the authentication error (see [AuthError](AuthError)).
+//!
+//! When the middleware does not respond immediately (authentication succeeded or the passthough policy says "pass"), it will always store the authentication status in request-local data.
+//! This [KeycloakAuthStatus](KeycloakAuthStatus) can be picked up from a following middleware or handler so you can do whatever you want.
+//!
+//! ```
+//! # use actix_web::{HttpResponse, Responder};
+//! use actix_web::web::ReqData;
+//! use actix_web_middleware_keycloak_auth::KeycloakAuthStatus;
+//!
+//! async fn my_handler(auth_status: ReqData<KeycloakAuthStatus>) -> impl Responder {
+//!     match auth_status.into_inner() {
+//!         KeycloakAuthStatus::Success => HttpResponse::Ok().body("success!"),
+//!         KeycloakAuthStatus::Failure(e) => HttpResponse::Ok().body(format!("auth failed ({:?}) but it's OK", &e))
+//!     }
+//! }
+//!
+//! ```
 
 // Force exposed items to be documented
 #![deny(missing_docs)]
@@ -197,7 +219,7 @@ pub use jsonwebtoken::DecodingKey;
 
 use actix_web::body::AnyBody;
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
-use actix_web::{Error, HttpMessage, HttpResponse};
+use actix_web::{Error, HttpMessage};
 use chrono::{serde::ts_seconds, DateTime, Utc};
 use futures_util::future::{ok, ready, Ready};
 use jsonwebtoken::{decode, decode_header, Validation};
@@ -213,7 +235,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use uuid::Uuid;
 
-use errors::AuthError;
+pub use errors::AuthError;
 pub use errors::ClaimError;
 pub use extractors::{
     KeycloakClaims, KeycloakRoles, StandardKeycloakClaims, UnstructuredKeycloakClaims,
@@ -222,16 +244,30 @@ use roles::{check_roles, extract_roles, Roles};
 
 /// Middleware configuration
 #[derive(Debug, Clone)]
-pub struct KeycloakAuth<'a> {
+pub struct KeycloakAuth<'a, PP: PassthroughPolicy> {
     /// If true, error responses will be more detailed to explain what went wrong
     pub detailed_responses: bool,
     /// Public key to use to verify JWT
     pub keycloak_oid_public_key: DecodingKey<'a>,
     /// List of Keycloak roles that must be included in JWT
     pub required_roles: Vec<Role>,
+    /// Policy that defines whether or not the middleware should return a HTTP error or continue to the handler (depending on which error occurred)
+    pub passthrough_policy: PP,
 }
 
-impl<'a, S> Transform<S, ServiceRequest> for KeycloakAuth<'a>
+impl<'a> KeycloakAuth<'a, AlwaysReturnPolicy> {
+    /// Create a middleware with the provided public key and the default config
+    pub fn default_with_pk(keycloak_oid_public_key: DecodingKey<'a>) -> Self {
+        Self {
+            detailed_responses: true,
+            keycloak_oid_public_key,
+            required_roles: vec![],
+            passthrough_policy: AlwaysReturnPolicy,
+        }
+    }
+}
+
+impl<'a, PP: PassthroughPolicy, S> Transform<S, ServiceRequest> for KeycloakAuth<'a, PP>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
     S::Future: 'static,
@@ -239,7 +275,7 @@ where
     type Response = ServiceResponse<AnyBody>;
     type Error = Error;
     type InitError = ();
-    type Transform = KeycloakAuthMiddleware<'a, S>;
+    type Transform = KeycloakAuthMiddleware<'a, PP, S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
@@ -249,16 +285,62 @@ where
             detailed_responses: self.detailed_responses,
             keycloak_oid_public_key: self.keycloak_oid_public_key.clone(),
             required_roles: self.required_roles.clone(),
+            passthrough_policy: self.passthrough_policy.clone(),
         })
     }
 }
 
 /// Internal middleware configuration
-pub struct KeycloakAuthMiddleware<'a, S> {
+pub struct KeycloakAuthMiddleware<'a, PP: PassthroughPolicy, S> {
     service: S,
     detailed_responses: bool,
     keycloak_oid_public_key: DecodingKey<'a>,
     required_roles: Vec<Role>,
+    passthrough_policy: PP,
+}
+
+/// Auth result that is injected in request-local data
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KeycloakAuthStatus {
+    /// Authentication is successful
+    Success,
+    /// Authentication failed
+    Failure(AuthError),
+}
+
+/// What the middleware can do when authentication failed
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PassthroughAction {
+    /// Continue to the handler as if authentication was not mandatory
+    Pass,
+    /// Return a HTTP error immediately
+    Return,
+}
+
+/// Generic structure of a policy that defines what the middleware should do when authentication fails
+pub trait PassthroughPolicy: Clone {
+    /// When authentication fails, this function is run to determine what to do
+    fn policy(&self, error: &AuthError) -> PassthroughAction;
+}
+
+/// A passthrough policy that will always return an HTTP error (i.e. when authentication is mandatory)
+#[derive(Debug, Clone, Copy)]
+pub struct AlwaysReturnPolicy;
+
+impl PassthroughPolicy for AlwaysReturnPolicy {
+    fn policy(&self, _error: &AuthError) -> PassthroughAction {
+        PassthroughAction::Return
+    }
+}
+
+/// A passthrough policy that will always continue to handler (i.e. when authentication is optional)
+#[derive(Debug, Clone, Copy)]
+pub struct AlwaysPassPolicy;
+
+impl PassthroughPolicy for AlwaysPassPolicy {
+    fn policy(&self, _error: &AuthError) -> PassthroughAction {
+        PassthroughAction::Pass
+    }
 }
 
 /// Standard JWT claims
@@ -421,7 +503,7 @@ impl Roles for RoleClaims {
     }
 }
 
-impl<'a, S> Service<ServiceRequest> for KeycloakAuthMiddleware<'a, S>
+impl<'a, PP: PassthroughPolicy, S> Service<ServiceRequest> for KeycloakAuthMiddleware<'a, PP, S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
     S::Future: 'static,
@@ -470,6 +552,9 @@ where
                                                         {
                                                             let mut extensions =
                                                                 req.extensions_mut();
+                                                            extensions.insert(
+                                                                KeycloakAuthStatus::Success,
+                                                            );
                                                             extensions.insert(RawClaims(
                                                                 raw_token.claims,
                                                             ));
@@ -480,56 +565,129 @@ where
                                                     }
                                                     Err(e) => {
                                                         debug!("{}", &e);
-                                                        Box::pin(ready(Ok(req.into_response(
-                                                            e.to_response(self.detailed_responses),
-                                                        ))))
+                                                        match self.passthrough_policy.policy(&e) {
+                                                            PassthroughAction::Pass => {
+                                                                {
+                                                                    let mut extensions =
+                                                                        req.extensions_mut();
+                                                                    extensions.insert(
+                                                                        KeycloakAuthStatus::Failure(
+                                                                            e.clone(),
+                                                                        ),
+                                                                    );
+                                                                }
+                                                                Box::pin(self.service.call(req))
+                                                            }
+                                                            PassthroughAction::Return => {
+                                                                Box::pin(ready(Ok(req
+                                                                    .into_response(
+                                                                        e.to_response(
+                                                                            self.detailed_responses,
+                                                                        ),
+                                                                    ))))
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
                                             Err(e) => {
                                                 let e = AuthError::RoleParsingError(e.to_string());
                                                 debug!("{}", &e);
-                                                Box::pin(ready(Ok(req
-                                                    .into_response::<AnyBody, HttpResponse>(
-                                                        e.to_response(self.detailed_responses),
-                                                    ))))
+                                                match self.passthrough_policy.policy(&e) {
+                                                    PassthroughAction::Pass => {
+                                                        {
+                                                            let mut extensions =
+                                                                req.extensions_mut();
+                                                            extensions.insert(
+                                                                KeycloakAuthStatus::Failure(
+                                                                    e.clone(),
+                                                                ),
+                                                            );
+                                                        }
+                                                        Box::pin(self.service.call(req))
+                                                    }
+                                                    PassthroughAction::Return => {
+                                                        Box::pin(ready(Ok(req.into_response(
+                                                            e.to_response(self.detailed_responses),
+                                                        ))))
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                     Err(e) => {
                                         let e = AuthError::DecodeError(e.to_string());
                                         debug!("{}", &e);
-                                        Box::pin(ready(Ok(req
-                                            .into_response::<AnyBody, HttpResponse>(
-                                                e.to_response(self.detailed_responses),
-                                            ))))
+                                        match self.passthrough_policy.policy(&e) {
+                                            PassthroughAction::Pass => {
+                                                {
+                                                    let mut extensions = req.extensions_mut();
+                                                    extensions.insert(KeycloakAuthStatus::Failure(
+                                                        e.clone(),
+                                                    ));
+                                                }
+                                                Box::pin(self.service.call(req))
+                                            }
+                                            PassthroughAction::Return => Box::pin(ready(Ok(req
+                                                .into_response(
+                                                    e.to_response(self.detailed_responses),
+                                                )))),
+                                        }
                                     }
                                 }
                             }
                             Err(e) => {
                                 let e = AuthError::InvalidJwt(e.to_string());
                                 debug!("{}", &e);
-                                Box::pin(ready(Ok(req.into_response::<AnyBody, HttpResponse>(
-                                    e.to_response(self.detailed_responses),
-                                ))))
+                                match self.passthrough_policy.policy(&e) {
+                                    PassthroughAction::Pass => {
+                                        {
+                                            let mut extensions = req.extensions_mut();
+                                            extensions
+                                                .insert(KeycloakAuthStatus::Failure(e.clone()));
+                                        }
+                                        Box::pin(self.service.call(req))
+                                    }
+                                    PassthroughAction::Return => Box::pin(ready(Ok(
+                                        req.into_response(e.to_response(self.detailed_responses))
+                                    ))),
+                                }
                             }
                         }
                     }
                     Err(_) => {
                         let e = AuthError::InvalidAuthorizationHeader;
                         debug!("{}", &e);
-                        Box::pin(ready(Ok(req.into_response::<AnyBody, HttpResponse>(
-                            e.to_response(self.detailed_responses),
-                        ))))
+                        match self.passthrough_policy.policy(&e) {
+                            PassthroughAction::Pass => {
+                                {
+                                    let mut extensions = req.extensions_mut();
+                                    extensions.insert(KeycloakAuthStatus::Failure(e.clone()));
+                                }
+                                Box::pin(self.service.call(req))
+                            }
+                            PassthroughAction::Return => Box::pin(ready(Ok(
+                                req.into_response(e.to_response(self.detailed_responses))
+                            ))),
+                        }
                     }
                 }
             }
             None => {
-                let e = AuthError::NoBearerToken;
+                let e = AuthError::NoAuthorizationHeader;
                 debug!("{}", &e);
-                Box::pin(ready(Ok(req.into_response::<AnyBody, HttpResponse>(
-                    e.to_response(self.detailed_responses),
-                ))))
+                match self.passthrough_policy.policy(&e) {
+                    PassthroughAction::Pass => {
+                        {
+                            let mut extensions = req.extensions_mut();
+                            extensions.insert(KeycloakAuthStatus::Failure(e.clone()));
+                        }
+                        Box::pin(self.service.call(req))
+                    }
+                    PassthroughAction::Return => Box::pin(ready(Ok(
+                        req.into_response(e.to_response(self.detailed_responses))
+                    ))),
+                }
             }
         }
     }

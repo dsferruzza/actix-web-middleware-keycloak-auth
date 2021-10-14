@@ -7,8 +7,8 @@ use actix_web::http::StatusCode;
 use actix_web::web::Bytes;
 use actix_web::{test, web, App, HttpResponse, Responder};
 use actix_web_middleware_keycloak_auth::{
-    Access, KeycloakAuth, KeycloakClaims, KeycloakRoles, Role, StandardClaims,
-    StandardKeycloakClaims, UnstructuredKeycloakClaims,
+    Access, AlwaysPassPolicy, AlwaysReturnPolicy, KeycloakAuth, KeycloakClaims, KeycloakRoles,
+    Role, StandardClaims, StandardKeycloakClaims, UnstructuredKeycloakClaims,
 };
 use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
 use serde::Deserialize;
@@ -121,11 +121,8 @@ fn init_logger() {
 async fn unprotected_route() {
     init_logger();
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -147,11 +144,8 @@ async fn unprotected_route() {
 async fn no_bearer_token() {
     init_logger();
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -177,6 +171,7 @@ async fn no_bearer_token_no_debug() {
 
     let keycloak_auth = KeycloakAuth {
         detailed_responses: false,
+        passthrough_policy: AlwaysReturnPolicy,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![],
     };
@@ -203,11 +198,8 @@ async fn no_bearer_token_no_debug() {
 async fn no_bearer_in_authorization_header() {
     init_logger();
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -233,11 +225,8 @@ async fn no_bearer_in_authorization_header() {
 async fn invalid_jwt() {
     init_logger();
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -263,11 +252,8 @@ async fn invalid_jwt() {
 async fn invalid_jwt_signature() {
     init_logger();
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -300,11 +286,8 @@ async fn invalid_jwt_signature() {
 async fn valid_jwt() {
     init_logger();
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -343,6 +326,7 @@ async fn missing_jwt_roles() {
 
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
+        passthrough_policy: AlwaysReturnPolicy,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![
             Role::Realm {
@@ -394,6 +378,7 @@ async fn valid_jwt_roles() {
 
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
+        passthrough_policy: AlwaysReturnPolicy,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![
             Role::Realm {
@@ -453,11 +438,8 @@ async fn valid_jwt_roles() {
 async fn roles_extractor() {
     init_logger();
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -519,6 +501,7 @@ async fn from_raw_claims_single_aud_as_string() {
 
     let keycloak_auth = KeycloakAuth {
         detailed_responses: true,
+        passthrough_policy: AlwaysReturnPolicy,
         keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
         required_roles: vec![Role::Client {
             client: "client1".to_owned(),
@@ -576,11 +559,8 @@ async fn from_raw_claims_single_aud_as_string() {
 async fn with_unstructured_claims() {
     init_logger();
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -642,11 +622,8 @@ async fn with_custom_claims() {
         HttpResponse::Ok().body(claims.into_inner().custom_field)
     }
 
-    let keycloak_auth = KeycloakAuth {
-        detailed_responses: true,
-        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-        required_roles: vec![],
-    };
+    let keycloak_auth =
+        KeycloakAuth::default_with_pk(DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap());
     let app = test::init_service(
         App::new()
             .service(
@@ -712,4 +689,58 @@ async fn with_custom_claims() {
     assert!(String::from_utf8(body.to_vec())
         .unwrap()
         .contains("invalid type"));
+}
+
+#[actix_rt::test]
+async fn always_return_policy() {
+    init_logger();
+
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        passthrough_policy: AlwaysReturnPolicy,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+    let app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(hello_world)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let req = test::TestRequest::with_uri("/private").to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert!(resp.status().is_client_error());
+}
+
+#[actix_rt::test]
+async fn always_pass_policy() {
+    init_logger();
+
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        passthrough_policy: AlwaysPassPolicy,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+    let app = test::init_service(
+        App::new()
+            .service(
+                web::scope("/private")
+                    .wrap(keycloak_auth)
+                    .route("", web::get().to(hello_world)),
+            )
+            .service(web::resource("/").to(hello_world)),
+    )
+    .await;
+
+    let req = test::TestRequest::with_uri("/private").to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert!(resp.status().is_success());
 }

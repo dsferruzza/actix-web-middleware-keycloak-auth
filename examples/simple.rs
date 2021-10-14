@@ -4,7 +4,9 @@
 // License: MIT
 
 use actix_web::{middleware, web, App, HttpResponse, HttpServer, Responder};
-use actix_web_middleware_keycloak_auth::{DecodingKey, KeycloakAuth, Role, StandardKeycloakClaims};
+use actix_web_middleware_keycloak_auth::{
+    AlwaysReturnPolicy, DecodingKey, KeycloakAuth, Role, StandardKeycloakClaims,
+};
 
 const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv
@@ -55,6 +57,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         let keycloak_auth = KeycloakAuth {
             detailed_responses: true,
+            passthrough_policy: AlwaysReturnPolicy,
             keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
             required_roles: vec![Role::Realm {
                 role: "test".to_owned(),

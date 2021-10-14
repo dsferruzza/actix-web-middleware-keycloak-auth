@@ -57,11 +57,9 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     HttpServer::new(|| {
-        let keycloak_auth = KeycloakAuth {
-            detailed_responses: true,
-            keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
-            required_roles: vec![],
-        };
+        let keycloak_auth = KeycloakAuth::default_with_pk(
+            DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        );
 
         App::new()
             .wrap(middleware::Logger::default())

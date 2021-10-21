@@ -12,9 +12,6 @@ use std::ops::Deref;
 
 use super::{RawClaims, Role, StandardClaims, UnstructuredClaims};
 
-#[derive(Debug, Default)]
-pub struct EmptyConfig;
-
 #[derive(Debug)]
 pub struct KeycloakClaimsError(serde_json::Error);
 
@@ -50,7 +47,6 @@ impl<T: DeserializeOwned> Deref for KeycloakClaims<T> {
 }
 
 impl<T: DeserializeOwned> FromRequest for KeycloakClaims<T> {
-    type Config = EmptyConfig;
     type Error = KeycloakClaimsError;
     type Future = Ready<Result<Self, Self::Error>>;
 
@@ -108,7 +104,6 @@ impl Deref for KeycloakRoles {
 }
 
 impl FromRequest for KeycloakRoles {
-    type Config = EmptyConfig;
     type Error = KeycloakRolesError;
     type Future = Ready<Result<Self, Self::Error>>;
 

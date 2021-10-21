@@ -1,5 +1,9 @@
 # Changelog
 
+## unreleased
+
+- support Actix Web 4.0.0-beta.10
+
 ## v0.4.0-beta.1
 
 - switch to Actix Web 4

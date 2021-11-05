@@ -17,6 +17,7 @@ A middleware for [Actix Web](https://actix.rs/) that handles authentication with
 - access JWT claims from handlers (for example: get the ID of the authenticated user)
 - access parsed roles from handlers (every Keycloak role contained in the JWT)
 - compatible with [paperclip](https://crates.io/crates/paperclip) using the `paperclip_compat` feature
+- store auth status in request-local data instead of returning a HTTP response (so that the next middleware/handler can try another auth mechanism, for example)
 
 ## Usage
 

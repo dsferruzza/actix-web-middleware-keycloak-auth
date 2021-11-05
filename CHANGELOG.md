@@ -3,6 +3,7 @@
 ## unreleased
 
 - support Actix Web 4.0.0-beta.10
+- add passthrough policy setting to allow auth to be optional
 
 ## v0.4.0-beta.1
 

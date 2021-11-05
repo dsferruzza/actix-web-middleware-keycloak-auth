@@ -6,28 +6,39 @@
 use actix_web::{FromRequest, ResponseError};
 use futures_util::future::{ready, Ready};
 use serde::de::DeserializeOwned;
-use serde_json::Value;
 use std::fmt::Display;
 use std::ops::Deref;
 
 use super::{RawClaims, Role, StandardClaims, UnstructuredClaims};
 
 #[derive(Debug)]
-pub struct KeycloakClaimsError(serde_json::Error);
+pub enum KeycloakExtractorError {
+    ClaimsExtraction,
+    Claims(serde_json::Error),
+    RolesExtraction,
+}
 
-impl Display for KeycloakClaimsError {
+impl Display for KeycloakExtractorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error while deserializing JWT: {}", self.0)
+        match self {
+            Self::ClaimsExtraction => write!(f, "Could not find JWT claims in ReqData"),
+            Self::Claims(e) => write!(f, "Error while deserializing JWT: {}", e),
+            Self::RolesExtraction => write!(f, "Could not find Keycloak roles in ReqData"),
+        }
     }
 }
 
-impl ResponseError for KeycloakClaimsError {
+impl ResponseError for KeycloakExtractorError {
     fn status_code(&self) -> actix_web::http::StatusCode {
-        actix_web::http::StatusCode::FORBIDDEN
+        match self {
+            Self::ClaimsExtraction => actix_web::http::StatusCode::FORBIDDEN,
+            Self::Claims(_) => actix_web::http::StatusCode::FORBIDDEN,
+            Self::RolesExtraction => actix_web::http::StatusCode::FORBIDDEN,
+        }
     }
 }
 
-/// Actix-web extractor for custom JWT claims
+/// Actix Web extractor for custom JWT claims
 #[derive(Debug, Clone)]
 pub struct KeycloakClaims<T: DeserializeOwned>(T);
 
@@ -46,45 +57,40 @@ impl<T: DeserializeOwned> Deref for KeycloakClaims<T> {
     }
 }
 
+/// Extract custom JWT claims from an Actix Web request
+pub fn extract_jwt_claims<T: DeserializeOwned>(
+    req: &actix_web::HttpRequest,
+) -> Result<T, KeycloakExtractorError> {
+    let extensions = req.extensions();
+    match extensions.get::<RawClaims>() {
+        Some(raw_claims) => {
+            let deserialized_claims = serde_json::from_value::<T>(raw_claims.0.to_owned());
+
+            deserialized_claims.map_err(KeycloakExtractorError::Claims)
+        }
+        None => Err(KeycloakExtractorError::ClaimsExtraction),
+    }
+}
+
 impl<T: DeserializeOwned> FromRequest for KeycloakClaims<T> {
-    type Error = KeycloakClaimsError;
+    type Error = KeycloakExtractorError;
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(
         req: &actix_web::HttpRequest,
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
-        let extensions = req.extensions();
-        let raw_claims = extensions
-            .get::<RawClaims>()
-            .unwrap_or(&RawClaims(Value::Null));
-        let deserialized_claims = serde_json::from_value::<T>(raw_claims.0.to_owned());
-        ready(deserialized_claims.map(Self).map_err(KeycloakClaimsError))
+        ready(extract_jwt_claims(req).map(Self))
     }
 }
 
-/// Actix-web extractor for unstructured JWT claims (see [UnstructuredClaims](UnstructuredClaims))
+/// Actix Web extractor for unstructured JWT claims (see [UnstructuredClaims](UnstructuredClaims))
 pub type UnstructuredKeycloakClaims = KeycloakClaims<UnstructuredClaims>;
 
-/// Actix-web extractor for standard JWT claims (see [StandardClaims](StandardClaims))
+/// Actix Web extractor for standard JWT claims (see [StandardClaims](StandardClaims))
 pub type StandardKeycloakClaims = KeycloakClaims<StandardClaims>;
 
-#[derive(Debug)]
-pub struct KeycloakRolesError;
-
-impl Display for KeycloakRolesError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Error while extracting Keycloak roles")
-    }
-}
-
-impl ResponseError for KeycloakRolesError {
-    fn status_code(&self) -> actix_web::http::StatusCode {
-        actix_web::http::StatusCode::FORBIDDEN
-    }
-}
-
-/// Actix-web extractor for Keycloak roles
+/// Actix Web extractor for Keycloak roles
 #[derive(Debug, Clone)]
 pub struct KeycloakRoles(Vec<Role>);
 
@@ -104,7 +110,7 @@ impl Deref for KeycloakRoles {
 }
 
 impl FromRequest for KeycloakRoles {
-    type Error = KeycloakRolesError;
+    type Error = KeycloakExtractorError;
     type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(
@@ -112,7 +118,9 @@ impl FromRequest for KeycloakRoles {
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
         let extensions = req.extensions();
-        let roles = extensions.get::<Vec<Role>>().map(|r| r.to_owned());
-        ready(roles.map(Self).ok_or(KeycloakRolesError))
+        match extensions.get::<Vec<Role>>() {
+            Some(roles) => ready(Ok(Self(roles.to_owned()))),
+            None => ready(Err(KeycloakExtractorError::RolesExtraction)),
+        }
     }
 }

@@ -8,13 +8,20 @@ use actix_web::{HttpResponse, ResponseError};
 
 use super::Role;
 
+/// An authentication error
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthError {
-    NoBearerToken,
+    /// The `Authorization` header is missing
+    NoAuthorizationHeader,
+    /// The value of the `Authorization` header is not `Bearer [JWT]`
     InvalidAuthorizationHeader,
+    /// The JWT is invalid (bad structure, wrong signature, ...)
     InvalidJwt(String),
+    /// The JWT does not contain expected claims
     DecodeError(String),
+    /// The JWT contains role claims that does not have the expected type/structure
     RoleParsingError(String),
+    /// The JWT does not contain some required roles
     MissingRoles(Vec<Role>),
 }
 
@@ -35,7 +42,7 @@ impl ResponseError for AuthError {
 impl std::fmt::Display for AuthError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NoBearerToken => f.write_str("No bearer token was provided"),
+            Self::NoAuthorizationHeader => f.write_str("No bearer token was provided"),
             Self::InvalidAuthorizationHeader => {
                 f.write_str("Authorization header value is invalid (cannot convert it into string)")
             }
@@ -62,6 +69,7 @@ impl std::fmt::Display for AuthError {
 }
 
 impl AuthError {
+    /// Build a HTTP response from an authentication error
     pub fn to_response(&self, detailed_responses: bool) -> HttpResponse {
         if detailed_responses {
             self.error_response()

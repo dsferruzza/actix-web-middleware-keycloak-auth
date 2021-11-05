@@ -2,7 +2,7 @@
 name = "actix-web-middleware-keycloak-auth"
 version = "0.4.0-beta.1"
 authors = ["David Sferruzza <david.sferruzza@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "A middleware for Actix Web that handles authentication with a JWT emitted by Keycloak"
 repository = "https://github.com/dsferruzza/actix-web-middleware-keycloak-auth"
 readme = "README.md"

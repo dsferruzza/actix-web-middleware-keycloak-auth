@@ -7,6 +7,7 @@
 - add a `KeycloakAuth::default_with_pk()` helper function to initialize the middleware with default settings
 - improve extractors error types
 - expose a pure function to extract custom JWT claims from an Actix Web request
+- update to Rust 2021 edition
 
 ## v0.4.0-beta.1
 

@@ -238,7 +238,8 @@ use uuid::Uuid;
 pub use errors::AuthError;
 pub use errors::ClaimError;
 pub use extractors::{
-    KeycloakClaims, KeycloakRoles, StandardKeycloakClaims, UnstructuredKeycloakClaims,
+    extract_jwt_claims, KeycloakClaims, KeycloakRoles, StandardKeycloakClaims,
+    UnstructuredKeycloakClaims,
 };
 use roles::{check_roles, extract_roles, Roles};
 

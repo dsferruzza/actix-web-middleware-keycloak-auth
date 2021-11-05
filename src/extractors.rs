@@ -27,7 +27,7 @@ impl ResponseError for KeycloakClaimsError {
     }
 }
 
-/// Actix-web extractor for custom JWT claims
+/// Actix Web extractor for custom JWT claims
 #[derive(Debug, Clone)]
 pub struct KeycloakClaims<T: DeserializeOwned>(T);
 
@@ -63,10 +63,10 @@ impl<T: DeserializeOwned> FromRequest for KeycloakClaims<T> {
     }
 }
 
-/// Actix-web extractor for unstructured JWT claims (see [UnstructuredClaims](UnstructuredClaims))
+/// Actix Web extractor for unstructured JWT claims (see [UnstructuredClaims](UnstructuredClaims))
 pub type UnstructuredKeycloakClaims = KeycloakClaims<UnstructuredClaims>;
 
-/// Actix-web extractor for standard JWT claims (see [StandardClaims](StandardClaims))
+/// Actix Web extractor for standard JWT claims (see [StandardClaims](StandardClaims))
 pub type StandardKeycloakClaims = KeycloakClaims<StandardClaims>;
 
 #[derive(Debug)]
@@ -84,7 +84,7 @@ impl ResponseError for KeycloakRolesError {
     }
 }
 
-/// Actix-web extractor for Keycloak roles
+/// Actix Web extractor for Keycloak roles
 #[derive(Debug, Clone)]
 pub struct KeycloakRoles(Vec<Role>);
 

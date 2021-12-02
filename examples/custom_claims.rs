@@ -82,6 +82,7 @@ async fn hello_world() -> impl Responder {
 
 // Let's define a struct with only the claims we need (even if they are not standard)
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct ClaimsWithEmail {
     // Standard claims, we choose the way they should be deserialized
     sub: Uuid,

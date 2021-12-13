@@ -3,6 +3,7 @@
 // Copyright: 2020, David Sferruzza
 // License: MIT
 
+use actix_web::body::BoxBody;
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError};
 
@@ -35,7 +36,7 @@ impl ResponseError for AuthError {
     }
 
     fn error_response(&self) -> HttpResponse {
-        HttpResponse::new(self.status_code()).set_body(self.to_string().into())
+        HttpResponse::new(self.status_code()).set_body(BoxBody::new(self.to_string()))
     }
 }
 

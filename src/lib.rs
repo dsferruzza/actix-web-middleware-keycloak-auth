@@ -217,7 +217,7 @@ mod paperclip;
 /// _(Re-exported from the `jsonwebtoken` crate)_
 pub use jsonwebtoken::DecodingKey;
 
-use actix_web::body::AnyBody;
+use actix_web::body::BoxBody;
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::{Error, HttpMessage};
 use chrono::{serde::ts_seconds, DateTime, Utc};
@@ -270,10 +270,10 @@ impl<'a> KeycloakAuth<'a, AlwaysReturnPolicy> {
 
 impl<'a, PP: PassthroughPolicy, S> Transform<S, ServiceRequest> for KeycloakAuth<'a, PP>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error>,
     S::Future: 'static,
 {
-    type Response = ServiceResponse<AnyBody>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type InitError = ();
     type Transform = KeycloakAuthMiddleware<'a, PP, S>;
@@ -506,10 +506,10 @@ impl Roles for RoleClaims {
 
 impl<'a, PP: PassthroughPolicy, S> Service<ServiceRequest> for KeycloakAuthMiddleware<'a, PP, S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<AnyBody>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error>,
     S::Future: 'static,
 {
-    type Response = ServiceResponse<AnyBody>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     #[allow(clippy::type_complexity)]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;

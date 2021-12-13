@@ -89,7 +89,7 @@ async fn hello_world() -> impl Responder {
 }
 
 async fn private(claims: StandardKeycloakClaims) -> impl Responder {
-    HttpResponse::Ok().body(&claims.sub.to_string())
+    HttpResponse::Ok().body(claims.sub.to_string())
 }
 
 async fn roles(roles: KeycloakRoles) -> impl Responder {

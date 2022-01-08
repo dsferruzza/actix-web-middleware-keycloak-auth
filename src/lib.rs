@@ -186,6 +186,24 @@
 //! - [AlwaysPassPolicy](AlwaysPassPolicy): always continue (⚠ you will need to handle security by yourself)
 //!
 //! It is also quite easy to build a custom policy by implementing the [PassthroughPolicy](PassthroughPolicy) trait, which allows to choose different actions (pass or return) depending on the authentication error (see [AuthError](AuthError)).
+//! You can even use a closure directly:
+//!
+//! ```
+//! # const KEYCLOAK_PK: &str = "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnzyis1ZjfNB0bBgKFMSv\nvkTtwlvBsaJq7S5wA+kzeVOVpVWwkWdVha4s38XM/pa/yr47av7+z3VTmvDRyAHc\naT92whREFpLv9cj5lTeJSibyr/Mrm/YtjCZVWgaOYIhwrXwKLqPr/11inWsAkfIy\ntvHWTxZYEcXLgAXFuUuaS3uF9gEiNQwzGTU1v0FqkqTBr4B8nW3HCN47XUu0t8Y0\ne+lf4s4OxQawWD79J9/5d3Ry0vbV3Am1FtGJiJvOwRsIfVChDpYStTcHTCMqtvWb\nV6L11BWkpzGXSW4Hv43qa+GSYOD2QU68Mb59oSk2OB+BtOLpJofmbGEGgvmwyCI9\nMwIDAQAB\n-----END PUBLIC KEY-----";
+//! use actix_web_middleware_keycloak_auth::{KeycloakAuth, DecodingKey, AuthError, PassthroughAction};
+//!
+//! let keycloak_auth_admin = KeycloakAuth {
+//!     detailed_responses: true,
+//!     passthrough_policy: |e: &AuthError| {
+//!         match e {
+//!             AuthError::NoAuthorizationHeader => PassthroughAction::Pass,
+//!             _ => PassthroughAction::Return,
+//!         }
+//!     },
+//!     keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+//!     required_roles: vec![],
+//! };
+//! ```
 //!
 //! When the middleware does not respond immediately (authentication succeeded or the passthough policy says "pass"), it will always store the authentication status in request-local data.
 //! This [KeycloakAuthStatus](KeycloakAuthStatus) can be picked up from a following middleware or handler so you can do whatever you want.
@@ -341,6 +359,16 @@ pub struct AlwaysPassPolicy;
 impl PassthroughPolicy for AlwaysPassPolicy {
     fn policy(&self, _error: &AuthError) -> PassthroughAction {
         PassthroughAction::Pass
+    }
+}
+
+/// A passthrough policy can be defined using a closure
+impl<F> PassthroughPolicy for F
+where
+    F: Fn(&AuthError) -> PassthroughAction + Clone,
+{
+    fn policy(&self, error: &AuthError) -> PassthroughAction {
+        self(error)
     }
 }
 

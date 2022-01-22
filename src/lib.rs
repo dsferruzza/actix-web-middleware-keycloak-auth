@@ -56,7 +56,7 @@
 //! ```
 //!
 //! There is also a [KeycloakRoles](KeycloakRoles) extractor that can be used to get the list of roles extracted from the JWT.
-//! This can be useful if a handler must have a different behavior depending of whether a role is present or not (i.e. a role is not stricly necessary but you want to check if it is there anyway, without having to reparse the JWT).
+//! This can be useful if a handler must have a different behavior depending of whether a role is present or not (i.e. a role is not strictly necessary but you want to check if it is there anyway, without having to reparse the JWT).
 //! Doing this will give your handler a [Vec](Vec) of [Role](Role).
 //!
 //! ```
@@ -179,7 +179,7 @@
 //! ## Make authentication optional
 //!
 //! By default, when the middleware cannot authenticate a request, it immediately responds with a HTTP error (401 or 403 depending on what failed).
-//! This behavior can be overriden by defining a [passthrough policy](PassthroughPolicy) when creating the middleware.
+//! This behavior can be overridden by defining a [passthrough policy](PassthroughPolicy) when creating the middleware.
 //!
 //! We provide two policies:
 //! - [AlwaysReturnPolicy](AlwaysReturnPolicy): always respond with an HTTP error (the default in most cases)
@@ -205,7 +205,7 @@
 //! };
 //! ```
 //!
-//! When the middleware does not respond immediately (authentication succeeded or the passthough policy says "pass"), it will always store the authentication status in request-local data.
+//! When the middleware does not respond immediately (authentication succeeded or the passthrough policy says "pass"), it will always store the authentication status in request-local data.
 //! This [KeycloakAuthStatus](KeycloakAuthStatus) can be picked up from a following middleware or handler so you can do whatever you want.
 //!
 //! ```
@@ -235,22 +235,19 @@ mod paperclip;
 /// _(Re-exported from the `jsonwebtoken` crate)_
 pub use jsonwebtoken::DecodingKey;
 
-use actix_web::body::BoxBody;
-use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
+use actix_web::body::EitherBody;
+use actix_web::dev::{self, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::{Error, HttpMessage};
 use chrono::{serde::ts_seconds, DateTime, Utc};
-use futures_util::future::{ok, ready, Ready};
+use futures_util::future::{ok, ready, FutureExt, LocalBoxFuture, Ready};
 use jsonwebtoken::{decode, decode_header, Validation};
 use log::{debug, trace};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, Value};
 use std::collections::HashMap;
-use std::future::Future;
 use std::iter::FromIterator;
 use std::ops::Deref;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use uuid::Uuid;
 
 pub use errors::AuthError;
@@ -286,12 +283,13 @@ impl<'a> KeycloakAuth<'a, AlwaysReturnPolicy> {
     }
 }
 
-impl<'a, PP: PassthroughPolicy, S> Transform<S, ServiceRequest> for KeycloakAuth<'a, PP>
+impl<'a, PP: PassthroughPolicy, S, B> Transform<S, ServiceRequest> for KeycloakAuth<'a, PP>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
+    B: 'static,
 {
-    type Response = ServiceResponse<BoxBody>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type InitError = ();
     type Transform = KeycloakAuthMiddleware<'a, PP, S>;
@@ -532,19 +530,17 @@ impl Roles for RoleClaims {
     }
 }
 
-impl<'a, PP: PassthroughPolicy, S> Service<ServiceRequest> for KeycloakAuthMiddleware<'a, PP, S>
+impl<'a, PP: PassthroughPolicy, S, B> Service<ServiceRequest> for KeycloakAuthMiddleware<'a, PP, S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
+    B: 'static,
 {
-    type Response = ServiceResponse<BoxBody>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
-    #[allow(clippy::type_complexity)]
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.service.poll_ready(cx)
-    }
+    dev::forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let auth_header = req.headers().get("Authorization");
@@ -590,7 +586,11 @@ where
                                                             extensions.insert(roles);
                                                         }
 
-                                                        Box::pin(self.service.call(req))
+                                                        Box::pin(
+                                                            self.service
+                                                                .call(req)
+                                                                .map(map_body_left),
+                                                        )
                                                     }
                                                     Err(e) => {
                                                         debug!("{}", &e);
@@ -605,15 +605,18 @@ where
                                                                         ),
                                                                     );
                                                                 }
-                                                                Box::pin(self.service.call(req))
+                                                                Box::pin(
+                                                                    self.service
+                                                                        .call(req)
+                                                                        .map(map_body_left),
+                                                                )
                                                             }
                                                             PassthroughAction::Return => {
                                                                 Box::pin(ready(Ok(req
-                                                                    .into_response(
-                                                                        e.to_response(
-                                                                            self.detailed_responses,
-                                                                        ),
-                                                                    ))))
+                                                                    .into_response(e.to_response(
+                                                                        self.detailed_responses,
+                                                                    ))
+                                                                    .map_into_right_body())))
                                                             }
                                                         }
                                                     }
@@ -633,11 +636,16 @@ where
                                                                 ),
                                                             );
                                                         }
-                                                        Box::pin(self.service.call(req))
+                                                        Box::pin(
+                                                            self.service
+                                                                .call(req)
+                                                                .map(map_body_left),
+                                                        )
                                                     }
                                                     PassthroughAction::Return => {
                                                         Box::pin(ready(Ok(req.into_response(
-                                                            e.to_response(self.detailed_responses),
+                                                            e.to_response(self.detailed_responses)
+                                                                .map_into_right_body(),
                                                         ))))
                                                     }
                                                 }
@@ -655,11 +663,12 @@ where
                                                         e.clone(),
                                                     ));
                                                 }
-                                                Box::pin(self.service.call(req))
+                                                Box::pin(self.service.call(req).map(map_body_left))
                                             }
                                             PassthroughAction::Return => Box::pin(ready(Ok(req
                                                 .into_response(
-                                                    e.to_response(self.detailed_responses),
+                                                    e.to_response(self.detailed_responses)
+                                                        .map_into_right_body(),
                                                 )))),
                                         }
                                     }
@@ -675,11 +684,13 @@ where
                                             extensions
                                                 .insert(KeycloakAuthStatus::Failure(e.clone()));
                                         }
-                                        Box::pin(self.service.call(req))
+                                        Box::pin(self.service.call(req).map(map_body_left))
                                     }
-                                    PassthroughAction::Return => Box::pin(ready(Ok(
-                                        req.into_response(e.to_response(self.detailed_responses))
-                                    ))),
+                                    PassthroughAction::Return => Box::pin(ready(Ok(req
+                                        .into_response(
+                                            e.to_response(self.detailed_responses)
+                                                .map_into_right_body(),
+                                        )))),
                                 }
                             }
                         }
@@ -693,11 +704,11 @@ where
                                     let mut extensions = req.extensions_mut();
                                     extensions.insert(KeycloakAuthStatus::Failure(e.clone()));
                                 }
-                                Box::pin(self.service.call(req))
+                                Box::pin(self.service.call(req).map(map_body_left))
                             }
-                            PassthroughAction::Return => Box::pin(ready(Ok(
-                                req.into_response(e.to_response(self.detailed_responses))
-                            ))),
+                            PassthroughAction::Return => Box::pin(ready(Ok(req.into_response(
+                                e.to_response(self.detailed_responses).map_into_right_body(),
+                            )))),
                         }
                     }
                 }
@@ -711,15 +722,21 @@ where
                             let mut extensions = req.extensions_mut();
                             extensions.insert(KeycloakAuthStatus::Failure(e.clone()));
                         }
-                        Box::pin(self.service.call(req))
+                        Box::pin(self.service.call(req).map(map_body_left))
                     }
-                    PassthroughAction::Return => Box::pin(ready(Ok(
-                        req.into_response(e.to_response(self.detailed_responses))
-                    ))),
+                    PassthroughAction::Return => Box::pin(ready(Ok(req.into_response(
+                        e.to_response(self.detailed_responses).map_into_right_body(),
+                    )))),
                 }
             }
         }
     }
+}
+
+fn map_body_left<B, E>(
+    res: Result<ServiceResponse<B>, E>,
+) -> Result<ServiceResponse<EitherBody<B>>, E> {
+    res.map(|res| res.map_into_left_body())
 }
 
 #[cfg(test)]

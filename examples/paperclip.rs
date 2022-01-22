@@ -6,7 +6,10 @@
 // This example needs to be run with the paperclip_compat feature
 // For example: cargo run --example paperclip --features paperclip_compat
 
-use actix_web::{middleware, App, HttpServer};
+use actix_web::{
+    middleware::{self, Compat},
+    App, HttpServer,
+};
 use actix_web_middleware_keycloak_auth::{
     AlwaysReturnPolicy, DecodingKey, KeycloakAuth, Role, StandardKeycloakClaims,
 };
@@ -73,7 +76,8 @@ async fn main() -> std::io::Result<()> {
             .wrap_api()
             .service(
                 web::scope("/private")
-                    .wrap(keycloak_auth)
+                    // Compat only needed because of paperclip version of `wrap`
+                    .wrap(Compat::new(keycloak_auth))
                     .route("", web::get().to(private)),
             )
             .service(web::resource("/").to(hello_world))

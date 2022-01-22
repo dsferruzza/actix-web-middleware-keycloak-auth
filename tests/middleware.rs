@@ -117,7 +117,7 @@ fn init_logger() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn unprotected_route() {
     init_logger();
 
@@ -140,7 +140,7 @@ async fn unprotected_route() {
     assert!(resp.status().is_success());
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn no_bearer_token() {
     init_logger();
 
@@ -165,7 +165,7 @@ async fn no_bearer_token() {
     assert!(!body.is_empty());
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn no_bearer_token_no_debug() {
     init_logger();
 
@@ -194,7 +194,7 @@ async fn no_bearer_token_no_debug() {
     assert_eq!(body, StatusCode::UNAUTHORIZED.to_string());
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn no_bearer_in_authorization_header() {
     init_logger();
 
@@ -221,7 +221,7 @@ async fn no_bearer_in_authorization_header() {
     assert!(!body.is_empty());
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn invalid_jwt() {
     init_logger();
 
@@ -248,7 +248,7 @@ async fn invalid_jwt() {
     assert!(!body.is_empty());
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn invalid_jwt_signature() {
     init_logger();
 
@@ -282,7 +282,7 @@ async fn invalid_jwt_signature() {
     assert!(!body.is_empty());
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn valid_jwt() {
     init_logger();
 
@@ -320,7 +320,7 @@ async fn valid_jwt() {
     assert_eq!(body, Bytes::from(user_id.to_string()));
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn missing_jwt_roles() {
     init_logger();
 
@@ -372,7 +372,7 @@ async fn missing_jwt_roles() {
     assert!(!body.is_empty());
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn valid_jwt_roles() {
     init_logger();
 
@@ -434,7 +434,7 @@ async fn valid_jwt_roles() {
     assert_eq!(body, Bytes::from(user_id.to_string()));
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn roles_extractor() {
     init_logger();
 
@@ -495,7 +495,7 @@ async fn roles_extractor() {
     assert_eq!(roles, expected_roles);
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn from_raw_claims_single_aud_as_string() {
     init_logger();
 
@@ -555,7 +555,7 @@ async fn from_raw_claims_single_aud_as_string() {
     assert_eq!(body, Bytes::from(user_id.to_string()));
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn with_unstructured_claims() {
     init_logger();
 
@@ -609,7 +609,7 @@ async fn with_unstructured_claims() {
     assert!(String::from_utf8(body.to_vec()).unwrap().contains("other"));
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn with_custom_claims() {
     init_logger();
 
@@ -691,7 +691,7 @@ async fn with_custom_claims() {
         .contains("invalid type"));
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn always_return_policy() {
     init_logger();
 
@@ -718,7 +718,7 @@ async fn always_return_policy() {
     assert!(resp.status().is_client_error());
 }
 
-#[actix_rt::test]
+#[actix_web::test]
 async fn always_pass_policy() {
     init_logger();
 
@@ -743,4 +743,32 @@ async fn always_pass_policy() {
     let resp = test::call_service(&app, req).await;
 
     assert!(resp.status().is_success());
+}
+
+#[actix_web::test]
+async fn compat_with_non_boxed_middleware() {
+    let keycloak_auth = KeycloakAuth {
+        detailed_responses: true,
+        passthrough_policy: AlwaysPassPolicy,
+        keycloak_oid_public_key: DecodingKey::from_rsa_pem(KEYCLOAK_PK.as_bytes()).unwrap(),
+        required_roles: vec![],
+    };
+
+    let _app = actix_web::App::new()
+        .wrap(keycloak_auth.clone())
+        .wrap(actix_web::middleware::Logger::default())
+        .route("", actix_web::web::to(|| async { "" }));
+
+    let _app = actix_web::App::new()
+        .wrap(actix_web::middleware::Logger::default())
+        .wrap(keycloak_auth.clone())
+        .route("", actix_web::web::to(|| async { "" }));
+
+    let _scope = actix_web::Scope::new("")
+        .wrap(keycloak_auth.clone())
+        .route("", actix_web::web::to(|| async { "" }));
+
+    let _resource = actix_web::Resource::new("")
+        .wrap(keycloak_auth)
+        .route(actix_web::web::to(|| async { "" }));
 }

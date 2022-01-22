@@ -14,18 +14,18 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-web = "4.0.0-beta.19"
+actix-web = "4.0.0-beta.21"
 chrono = { version = "0.4.19", features = ["serde"] }
 futures-util = "0.3.19"
 log = "0.4.14"
 jsonwebtoken = "7.2.0"
-serde = { version = "1.0.133", features = ["derive"] }
-serde_json = "1.0.74"
+serde = { version = "1.0.134", features = ["derive"] }
+serde_json = "1.0.75"
 uuid = { version = "0.8.2", features = ["serde"] }
-paperclip = { git = "https://github.com/sfisol/paperclip", version = "0.6.1", rev = "b6ffea6913d63f31eb5c273f653638f8dbd295ad", features = ["actix"], optional = true } # we depend on a fork until paperclip supports actix-web 4; see https://github.com/wafflespeanut/paperclip/pull/314
+paperclip = { git = "https://github.com/sfisol/paperclip", version = "0.6.1", rev = "99db92949e95287fbeb8f3ea844291f1810cccee", features = ["actix"], optional = true } # we depend on a fork until paperclip supports actix-web 4; see https://github.com/wafflespeanut/paperclip/pull/314
 
 [dev-dependencies]
-actix-rt = "2.5.1"
+actix-rt = "2.6.0"
 env_logger = "0.9.0"
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
 

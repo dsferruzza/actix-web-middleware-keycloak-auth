@@ -3,7 +3,7 @@
 // Copyright: 2020, David Sferruzza
 // License: MIT
 
-use actix_web::{FromRequest, ResponseError};
+use actix_web::{FromRequest, HttpMessage, ResponseError};
 use futures_util::future::{ready, Ready};
 use serde::de::DeserializeOwned;
 use std::fmt::Display;
@@ -61,7 +61,7 @@ impl<T: DeserializeOwned> Deref for KeycloakClaims<T> {
 pub fn extract_jwt_claims<T: DeserializeOwned>(
     req: &actix_web::HttpRequest,
 ) -> Result<T, KeycloakExtractorError> {
-    let req_data = req.req_data();
+    let req_data = req.extensions();
     match req_data.get::<RawClaims>() {
         Some(raw_claims) => {
             let deserialized_claims = serde_json::from_value::<T>(raw_claims.0.to_owned());
@@ -117,7 +117,7 @@ impl FromRequest for KeycloakRoles {
         req: &actix_web::HttpRequest,
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
-        let req_data = req.req_data();
+        let req_data = req.extensions();
         match req_data.get::<Vec<Role>>() {
             Some(roles) => ready(Ok(Self(roles.to_owned()))),
             None => ready(Err(KeycloakExtractorError::RolesExtraction)),

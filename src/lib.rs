@@ -26,9 +26,9 @@
 //!     .service(
 //!         web::scope("/private")
 //!             .wrap(keycloak_auth) // Every route in the service will leverage the middleware
-//!             .route("", web::get().to(|| HttpResponse::Ok().body("Private"))),
+//!             .route("", web::get().to(|| async { HttpResponse::Ok().body("Private") })),
 //!     )
-//!     .service(web::resource("/").to(|| HttpResponse::Ok().body("Hello World")));
+//!     .service(web::resource("/").to(|| async { HttpResponse::Ok().body("Hello World") }));
 //! ```
 //!
 //! HTTP requests to `GET /private` will need to have a `Authorization` header containing `Bearer [JWT]` where `[JWT]` is a valid JWT that was signed by the private key associated with the public key provided when the middleware was initialized.
@@ -95,14 +95,14 @@
 //!     .service(
 //!         web::scope("/private")
 //!             .wrap(keycloak_auth) // User must be authenticated
-//!             .route("", web::get().to(|| HttpResponse::Ok().body("Private"))),
+//!             .route("", web::get().to(|| async { HttpResponse::Ok().body("Private") })),
 //!     )
 //!     .service(
 //!         web::scope("/admin")
 //!             .wrap(keycloak_auth_admin) // User must have the "admin" role
-//!             .route("", web::get().to(|| HttpResponse::Ok().body("Admin"))),
+//!             .route("", web::get().to(|| async { HttpResponse::Ok().body("Admin") })),
 //!     )
-//!     .service(web::resource("/").to(|| HttpResponse::Ok().body("Hello World")));
+//!     .service(web::resource("/").to(|| async { HttpResponse::Ok().body("Hello World") }));
 //! ```
 //!
 //! ## Access claims from handlers

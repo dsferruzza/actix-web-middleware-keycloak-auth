@@ -259,21 +259,21 @@ pub use extractors::{
 use roles::{check_roles, extract_roles, Roles};
 
 /// Middleware configuration
-#[derive(Debug, Clone)]
-pub struct KeycloakAuth<'a, PP: PassthroughPolicy> {
+#[derive(Clone)]
+pub struct KeycloakAuth<PP: PassthroughPolicy> {
     /// If true, error responses will be more detailed to explain what went wrong
     pub detailed_responses: bool,
     /// Public key to use to verify JWT
-    pub keycloak_oid_public_key: DecodingKey<'a>,
+    pub keycloak_oid_public_key: DecodingKey,
     /// List of Keycloak roles that must be included in JWT
     pub required_roles: Vec<Role>,
     /// Policy that defines whether or not the middleware should return a HTTP error or continue to the handler (depending on which error occurred)
     pub passthrough_policy: PP,
 }
 
-impl<'a> KeycloakAuth<'a, AlwaysReturnPolicy> {
+impl KeycloakAuth<AlwaysReturnPolicy> {
     /// Create a middleware with the provided public key and the default config
-    pub fn default_with_pk(keycloak_oid_public_key: DecodingKey<'a>) -> Self {
+    pub fn default_with_pk(keycloak_oid_public_key: DecodingKey) -> Self {
         Self {
             detailed_responses: true,
             keycloak_oid_public_key,
@@ -283,7 +283,7 @@ impl<'a> KeycloakAuth<'a, AlwaysReturnPolicy> {
     }
 }
 
-impl<'a, PP: PassthroughPolicy, S, B> Transform<S, ServiceRequest> for KeycloakAuth<'a, PP>
+impl<PP: PassthroughPolicy, S, B> Transform<S, ServiceRequest> for KeycloakAuth<PP>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
@@ -292,7 +292,7 @@ where
     type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type InitError = ();
-    type Transform = KeycloakAuthMiddleware<'a, PP, S>;
+    type Transform = KeycloakAuthMiddleware<PP, S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
@@ -308,10 +308,10 @@ where
 }
 
 /// Internal middleware configuration
-pub struct KeycloakAuthMiddleware<'a, PP: PassthroughPolicy, S> {
+pub struct KeycloakAuthMiddleware<PP: PassthroughPolicy, S> {
     service: S,
     detailed_responses: bool,
-    keycloak_oid_public_key: DecodingKey<'a>,
+    keycloak_oid_public_key: DecodingKey,
     required_roles: Vec<Role>,
     passthrough_policy: PP,
 }
@@ -530,7 +530,7 @@ impl Roles for RoleClaims {
     }
 }
 
-impl<'a, PP: PassthroughPolicy, S, B> Service<ServiceRequest> for KeycloakAuthMiddleware<'a, PP, S>
+impl<PP: PassthroughPolicy, S, B> Service<ServiceRequest> for KeycloakAuthMiddleware<PP, S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,

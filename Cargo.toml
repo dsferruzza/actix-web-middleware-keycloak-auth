@@ -22,7 +22,7 @@ jsonwebtoken = "8.0.1"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 uuid = { version = "0.8.2", features = ["serde"] }
-paperclip = { git = "https://github.com/sfisol/paperclip", version = "0.6.1", rev = "075c3c2c348c8a3c315bed5b3a9a4e969fe0283d", features = ["actix"], optional = true } # we depend on a fork until paperclip supports actix-web 4; see https://github.com/wafflespeanut/paperclip/pull/314
+paperclip = { git = "https://github.com/sfisol/paperclip", version = "0.6.1", rev = "c8d5b5528f83ff20f3f831078628124e4fc4b18f", features = ["actix4"], optional = true } # we depend on a fork until paperclip supports actix-web 4; see https://github.com/wafflespeanut/paperclip/pull/314
 
 [dev-dependencies]
 actix-web = { version = "4.0.1", default-features = false, features = ["macros"] }

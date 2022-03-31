@@ -17,12 +17,12 @@ license = "MIT"
 actix-web = { version = "4.0.1", default-features = false }
 chrono = { version = "0.4.19", features = ["serde"] }
 futures-util = { version = "0.3.21", default-features = false, features = ["std"] }
-log = "0.4.14"
+log = "0.4.16"
 jsonwebtoken = "8.0.1"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 uuid = { version = "0.8.2", features = ["serde"] }
-paperclip = { git = "https://github.com/sfisol/paperclip", version = "0.6.1", rev = "c8d5b5528f83ff20f3f831078628124e4fc4b18f", features = ["actix4"], optional = true } # we depend on a fork until paperclip supports actix-web 4; see https://github.com/wafflespeanut/paperclip/pull/314
+paperclip = { git = "https://github.com/paperclip-rs/paperclip", version = "0.6.1", rev = "3477c5d22850cf6bd440dd20267dfdae300db40e", default-features = false, features = ["actix4"], optional = true }
 
 [dev-dependencies]
 actix-web = { version = "4.0.1", default-features = false, features = ["macros"] }

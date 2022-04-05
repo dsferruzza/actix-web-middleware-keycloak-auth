@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.0
+
+- switch to Actix Web 4 (Actix Web 3 is no longer supported)
+- handle extraction and parsing of custom JWT claims
+- add a way to access parsed roles from handlers (every Keycloak role contained in the JWT)
+- add compatibility with the paperclip crate (under the `paperclip_compat` feature)
+- add passthrough policy setting to allow auth to be optional
+- add a `KeycloakAuth::default_with_pk()` helper function to initialize the middleware with default settings
+- improve extractors error types
+- expose a pure function to extract custom JWT claims from an Actix Web request
+- update to Rust 2021 edition
+
 ## v0.4.0-beta.2
 
 - support Actix Web 4.0.0-beta.10

@@ -11,10 +11,11 @@ A middleware for [Actix Web](https://actix.rs/) that handles authentication with
 ## Features
 
 - Actix Web middleware
-- deny HTTP requests that do not provide a valid JWT
+- deny HTTP requests that do not provide a valid JWT (or choose to allow them and handle the authentication state from a following middleware)
 - require one or several Keycloak realm or client roles to be included in the JWT
 - error HTTP responses sent from the middleware can have generic bodies as well as detailed error reasons
 - access JWT claims from handlers (for example: get the ID of the authenticated user)
+- parse custom JWT claims (using Serde)
 - access parsed roles from handlers (every Keycloak role contained in the JWT)
 - compatible with [paperclip](https://crates.io/crates/paperclip) using the `paperclip_compat` feature
 - store auth status in request-local data instead of returning a HTTP response (so that the next middleware/handler can try another auth mechanism, for example)

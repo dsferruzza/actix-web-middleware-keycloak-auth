@@ -15,19 +15,19 @@ license = "MIT"
 
 [dependencies]
 actix-web = { version = "4.3.1", default-features = false }
-chrono = { version = "0.4.23", features = ["serde"] }
-futures-util = { version = "0.3.26", default-features = false, features = ["std"] }
-log = "0.4.17"
-jsonwebtoken = "8.2.0"
-serde = { version = "1.0.154", features = ["derive"] }
-serde_json = "1.0.94"
-uuid = { version = "1.3.0", features = ["serde"] }
+chrono = { version = "0.4.26", features = ["serde"] }
+futures-util = { version = "0.3.28", default-features = false, features = ["std"] }
+log = "0.4.19"
+jsonwebtoken = "8.3.0"
+serde = { version = "1.0.169", features = ["derive"] }
+serde_json = "1.0.100"
+uuid = { version = "1.4.0", features = ["serde"] }
 paperclip = { version = "0.8.0", default-features = false, features = ["actix4"], optional = true }
 
 [dev-dependencies]
 actix-web = { version = "4.3.1", default-features = false, features = ["macros"] }
 env_logger = "0.10.0"
-uuid = { version = "1.3.0", features = ["serde", "v4"] }
+uuid = { version = "1.4.0", features = ["serde", "v4"] }
 
 [features]
 default = []

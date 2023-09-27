@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.1
+
+- update dependencies
+
 ## v0.4.0
 
 - switch to Actix Web 4 (Actix Web 3 is no longer supported)

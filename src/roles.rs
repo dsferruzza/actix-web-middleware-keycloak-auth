@@ -45,9 +45,9 @@ pub fn extract_roles(
                 .map(|role| Role::Realm {
                     role: role.to_owned(),
                 })
-                .collect()
+                .collect::<Vec<_>>()
         })
-        .unwrap_or_else(Vec::new);
+        .unwrap_or_default();
 
     let mut client_roles = resource_access
         .clone()
@@ -60,11 +60,11 @@ pub fn extract_roles(
                             client: client_name.to_owned(),
                             role: role.to_owned(),
                         })
-                        .collect::<Vec<Role>>()
+                        .collect::<Vec<_>>()
                 })
                 .collect()
         })
-        .unwrap_or_else(Vec::new);
+        .unwrap_or_default();
 
     roles.append(&mut client_roles);
     roles

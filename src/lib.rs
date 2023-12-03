@@ -558,10 +558,13 @@ where
                                 debug!("JWT header was decoded");
                                 debug!("JWT is using {:?} algorithm", &jwt_header.alg);
 
+                                let mut validation = Validation::new(jwt_header.alg);
+                                validation.validate_aud = false;
+
                                 match decode::<Value>(
                                     token,
                                     &self.keycloak_oid_public_key,
-                                    &Validation::new(jwt_header.alg),
+                                    &validation,
                                 ) {
                                     Ok(raw_token) => {
                                         debug!("JWT was decoded");

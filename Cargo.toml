@@ -30,3 +30,8 @@ uuid = { version = "1.10.0", features = ["serde", "v4"] }
 [features]
 default = []
 paperclip_compat = ["paperclip"]
+
+[[example]]
+name = "paperclip"
+path = "examples/paperclip.rs"
+required-features = ["paperclip_compat"]

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.0
+
+- update dependencies (switch to paperclip 0.9)
+
 ## v0.4.2
 
 - update dependencies
